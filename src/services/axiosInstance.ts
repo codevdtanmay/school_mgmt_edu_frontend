@@ -1,20 +1,18 @@
 import axios from 'axios';
 import { Student, Teacher, Notice, Activity, DashboardStats, FeeSummary } from '../types';
 
-const enableMock = false;
- // Easily flip to false to connect to a real live backend API!
-
+const enableMock = true; // Easily flip to false to connect to a real live backend API!
 
 // --- SEED DATA & IN-MEMORY LOCALSTORAGE DATABASE ---
 const STORAGE_PREFIX = 'pansy_erp_v3_';
 
 const defaultStudents: Student[] = [
-  { id: 'st-1', name: 'Rahul Kumar', email: 'rahul.k@pansy.edu', rollNumber: 'SOPF002', classCategory: 'Secondary', gender: 'Male', parentName: 'Karan Kumar', contact: '+91 98765 43210', admissionDate: '2025-07-15' },
-  { id: 'st-2', name: 'Aman Sharma', email: 'aman.s@pansy.edu', rollNumber: 'SOPF003', classCategory: 'Secondary', gender: 'Male', parentName: 'Rajesh Sharma', contact: '+91 98765 43211', admissionDate: '2025-08-10' },
-  { id: 'st-3', name: 'Riya Sen', email: 'riya.s@pansy.edu', rollNumber: 'SOPF004', classCategory: 'Secondary', gender: 'Female', parentName: 'Vikram Sen', contact: '+91 98765 43212', admissionDate: '2025-09-02' },
-  { id: 'st-4', name: 'Prisha Patel', email: 'prisha.p@pansy.edu', rollNumber: 'SOPF005', classCategory: 'Primary', gender: 'Female', parentName: 'Amit Patel', contact: '+91 98765 43213', admissionDate: '2025-09-05' },
-  { id: 'st-5', name: 'Arjun Singh', email: 'arjun.s@pansy.edu', rollNumber: 'SOPF006', classCategory: 'Secondary', gender: 'Male', parentName: 'Sanjay Singh', contact: '+91 98765 43214', admissionDate: '2025-09-08' },
-  { id: 'st-6', name: 'Ananya Roy', email: 'ananya.r@pansy.edu', rollNumber: 'SOPF007', classCategory: 'Primary', gender: 'Female', parentName: 'Carlos Roy', contact: '+91 98765 43215', admissionDate: '2025-09-10' },
+  { id: 'st-1', name: 'Rahul Kumar', email: 'rahul.k@pansy.edu', rollNumber: 'SOPF002', class: '10th', classCategory: 'Secondary', gender: 'Male', parentName: 'Karan Kumar', contact: '+91 98765 43210', admissionDate: '2025-07-15' },
+  { id: 'st-2', name: 'Aman Sharma', email: 'aman.s@pansy.edu', rollNumber: 'SOPF003', class: '9th', classCategory: 'Secondary', gender: 'Male', parentName: 'Rajesh Sharma', contact: '+91 98765 43211', admissionDate: '2025-08-10' },
+  { id: 'st-3', name: 'Riya Sen', email: 'riya.s@pansy.edu', rollNumber: 'SOPF004', class: '8th', classCategory: 'Middle School', gender: 'Female', parentName: 'Vikram Sen', contact: '+91 98765 43212', admissionDate: '2025-09-02' },
+  { id: 'st-4', name: 'Prisha Patel', email: 'prisha.p@pansy.edu', rollNumber: 'SOPF005', class: '3rd', classCategory: 'Primary', gender: 'Female', parentName: 'Amit Patel', contact: '+91 98765 43213', admissionDate: '2025-09-05' },
+  { id: 'st-5', name: 'Arjun Singh', email: 'arjun.s@pansy.edu', rollNumber: 'SOPF006', class: '10th', classCategory: 'Secondary', gender: 'Male', parentName: 'Sanjay Singh', contact: '+91 98765 43214', admissionDate: '2025-09-08' },
+  { id: 'st-6', name: 'Ananya Roy', email: 'ananya.r@pansy.edu', rollNumber: 'SOPF007', class: '2nd', classCategory: 'Primary', gender: 'Female', parentName: 'Carlos Roy', contact: '+91 98765 43215', admissionDate: '2025-09-10' },
 ];
 
 const defaultTeachers: Teacher[] = [
@@ -262,11 +260,13 @@ const handleMockRequest = (config: any): Promise<any> => {
           let category: 'Foundation' | 'Primary' | 'Middle School' | 'Secondary' = students[sIndex].classCategory;
           if (data.class) {
             const classStr = data.class.toLowerCase();
-            if (classStr.includes('9') || classStr.includes('10') || classStr.includes('secondary') || classStr.includes('high')) {
+            if (classStr.includes('9') || classStr.includes('10th') || classStr.includes('9th') || classStr.includes('secondary') || classStr.includes('high')) {
               category = 'Secondary';
-            } else if (classStr.includes('6') || classStr.includes('7') || classStr.includes('8') || classStr.includes('middle')) {
+            } else if (classStr.includes('10')) {
+              category = 'Secondary';
+            } else if (classStr.includes('6') || classStr.includes('7') || classStr.includes('8') || classStr.includes('6th') || classStr.includes('7th') || classStr.includes('8th') || classStr.includes('middle')) {
               category = 'Middle School';
-            } else if (classStr.includes('foundation') || classStr.includes('kindergarten') || classStr.includes('lkg') || classStr.includes('ukg')) {
+            } else if (classStr.includes('foundation') || classStr.includes('kindergarten') || classStr.includes('lkg') || classStr.includes('ukg') || classStr.includes('nursery')) {
               category = 'Foundation';
             } else {
               category = 'Primary';
@@ -355,11 +355,13 @@ const handleMockRequest = (config: any): Promise<any> => {
         // Derive Class Category for structural alignment / charts
         let category: 'Foundation' | 'Primary' | 'Middle School' | 'Secondary' = 'Primary';
         const classStr = (data.class || '').toLowerCase();
-        if (classStr.includes('9') || classStr.includes('10') || classStr.includes('secondary') || classStr.includes('high')) {
+        if (classStr.includes('9') || classStr.includes('10th') || classStr.includes('9th') || classStr.includes('secondary') || classStr.includes('high')) {
           category = 'Secondary';
-        } else if (classStr.includes('6') || classStr.includes('7') || classStr.includes('8') || classStr.includes('middle')) {
+        } else if (classStr.includes('10')) {
+          category = 'Secondary';
+        } else if (classStr.includes('6') || classStr.includes('7') || classStr.includes('8') || classStr.includes('6th') || classStr.includes('7th') || classStr.includes('8th') || classStr.includes('middle')) {
           category = 'Middle School';
-        } else if (classStr.includes('foundation') || classStr.includes('kindergarten') || classStr.includes('lkg') || classStr.includes('ukg')) {
+        } else if (classStr.includes('foundation') || classStr.includes('kindergarten') || classStr.includes('lkg') || classStr.includes('ukg') || classStr.includes('nursery')) {
           category = 'Foundation';
         }
 
@@ -369,7 +371,7 @@ const handleMockRequest = (config: any): Promise<any> => {
           name: data.name,
           email: emailResolved,
           admissionNo: data.admissionNo || `SOPF${Math.floor(1000 + Math.random() * 9000)}`,
-          class: data.class || 'Grade 10',
+          class: data.class || '10th',
           section: data.section || 'A',
           rollNo: Number(data.rollNo) || Math.floor(1 + Math.random() * 50),
           fatherName: data.fatherName || data.parentName || 'Unknown',
@@ -523,12 +525,11 @@ const handleMockRequest = (config: any): Promise<any> => {
 
 // Set up the base Axios instance
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: (import.meta as any).env?.VITE_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
   },
-   withCredentials: true,
-  // adapter: enableMock ? (config) => handleMockRequest(config) : undefined,
+  adapter: enableMock ? (config) => handleMockRequest(config) : undefined,
 });
 
 // Attach authorization headers automatically

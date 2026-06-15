@@ -143,6 +143,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   
   const [feeSearchQuery, setFeeSearchQuery] = useState('');
   const [feeClassFilter, setFeeClassFilter] = useState('All');
+  const [studentClassFilter, setStudentClassFilter] = useState('All');
   
   // Custom interactive payment modal states
   const [isCustomPayModalOpen, setIsCustomPayModalOpen] = useState(false);
@@ -183,7 +184,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     email: '',
     password: 'password123',
     admissionNo: '',
-    class: 'Grade 10',
+    class: '10th',
     section: 'A',
     rollNo: '',
     fatherName: '',
@@ -368,7 +369,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         email: '',
         password: 'password123',
         admissionNo: '',
-        class: 'Grade 10',
+        class: '10th',
         section: 'A',
         rollNo: '',
         fatherName: '',
@@ -537,12 +538,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // --- FILTERED DIRECTORIES ---
-  const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(query) ||
-    s.email.toLowerCase().includes(query) ||
-    s.rollNumber.toLowerCase().includes(query) ||
-    s.classCategory.toLowerCase().includes(query)
-  );
+  const filteredStudents = students.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(query) ||
+      s.email.toLowerCase().includes(query) ||
+      (s.admissionNo || s.rollNumber || '').toLowerCase().includes(query) ||
+      (s.classCategory || '').toLowerCase().includes(query) ||
+      (s.class || '').toLowerCase().includes(query);
+
+    const matchesClass = studentClassFilter === 'All' || s.class === studentClassFilter;
+    return matchesSearch && matchesClass;
+  });
 
   const filteredTeachers = teachers.filter(t => 
     t.name.toLowerCase().includes(query) ||
@@ -724,15 +729,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {currentTab === 'students' && (
         <Card className="overflow-hidden">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-100 mb-4">
-            <div className="relative w-full sm:max-w-xs">
-              <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                placeholder="Search registered students..."
-                className="w-full text-xs font-semibold pl-9 pr-4 py-2 border border-slate-200 focus:border-blue-500 rounded-lg outline-hidden"
-                disabled
-              />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:max-w-xl">
+              <div className="relative w-full sm:max-w-xs">
+                <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  placeholder="Search registered students..."
+                  className="w-full text-xs font-semibold pl-9 pr-4 py-2 border border-slate-200 focus:border-blue-500 rounded-lg outline-hidden"
+                  disabled
+                />
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider select-none whitespace-nowrap">Class:</span>
+                <select
+                  value={studentClassFilter}
+                  onChange={(e) => setStudentClassFilter(e.target.value)}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-700 focus:border-blue-500 cursor-pointer outline-hidden min-w-[110px]"
+                >
+                  <option value="All">All Classes</option>
+                  <option value="Nursery">Nursery</option>
+                  <option value="LKG">LKG</option>
+                  <option value="UKG">UKG</option>
+                  <option value="1st">1st</option>
+                  <option value="2nd">2nd</option>
+                  <option value="3rd">3rd</option>
+                  <option value="4th">4th</option>
+                  <option value="5th">5th</option>
+                  <option value="6th">6th</option>
+                  <option value="7th">7th</option>
+                  <option value="8th">8th</option>
+                  <option value="9th">9th</option>
+                  <option value="10th">10th</option>
+                </select>
+              </div>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <span className="text-xs font-semibold text-slate-400 mr-2 hidden md:inline">
@@ -761,13 +791,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <table className="w-full text-left text-xs text-slate-600 border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 font-bold text-slate-700 select-none">
-                  <th className="p-4 px-6">ID & NAME</th>
-                  <th className="p-4">ROLL NUMBER</th>
-                  <th className="p-4">CLASS SEGMENT</th>
-                  <th className="p-4">PARENT NAME</th>
-                  <th className="p-4">CONTACT LINE</th>
-                  <th className="p-4">ADMIT DATE</th>
-                  <th className="p-4 text-right">ACTIONS</th>
+                  <th className="p-4 px-6">Student Name</th>
+                  <th className="p-4">Admission No</th>
+                  <th className="p-4">Parent Name</th>
+                  <th className="p-4">Class</th>
+                  <th className="p-4">Section</th>
+                  <th className="p-4">Phone</th>
+                  <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
@@ -786,7 +816,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <p className="text-[10px] text-slate-400 font-bold">{stu.email}</p>
                         </div>
                       </td>
-                      <td className="p-4 font-mono font-bold text-slate-500">{stu.rollNumber}</td>
+                      <td className="p-4 font-mono font-bold text-slate-500">
+                        {stu.admissionNo || stu.rollNumber || 'N/A'}
+                      </td>
+                      <td className="p-4 text-slate-700 font-bold">{stu.parentName}</td>
                       <td className="p-4">
                         <Badge 
                           variant={
@@ -796,12 +829,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           } 
                           size="sm"
                         >
-                          {stu.classCategory}
+                          {stu.class || stu.classCategory || 'N/A'}
                         </Badge>
                       </td>
-                      <td className="p-4 text-slate-700 font-bold">{stu.parentName}</td>
-                      <td className="p-4 text-slate-505">{stu.contact}</td>
-                      <td className="p-4 font-semibold text-slate-500">{stu.admissionDate}</td>
+                      <td className="p-4 text-slate-600 font-semibold">{stu.section || 'N/A'}</td>
+                      <td className="p-4 text-slate-505">{stu.phone || stu.contact || 'N/A'}</td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
@@ -1512,13 +1544,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               onChange={(e) => setStudentForm({ ...studentForm, admissionNo: e.target.value })}
               required
             />
-            <Input
-              label="CLASS"
-              placeholder="Grade 10"
-              value={studentForm.class}
-              onChange={(e) => setStudentForm({ ...studentForm, class: e.target.value })}
-              required
-            />
+            <div className="w-full flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-700 tracking-wide select-none">
+                CLASS
+              </label>
+              <div className="relative flex items-center w-full">
+                <select
+                  className="w-full px-3.5 py-2 text-sm text-slate-900 bg-white border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-lg transition-all duration-200 outline-hidden cursor-pointer"
+                  value={studentForm.class}
+                  onChange={(e) => setStudentForm({ ...studentForm, class: e.target.value })}
+                  required
+                >
+                  <option value="Nursery">Nursery</option>
+                  <option value="LKG">LKG</option>
+                  <option value="UKG">UKG</option>
+                  <option value="1st">1st</option>
+                  <option value="2nd">2nd</option>
+                  <option value="3rd">3rd</option>
+                  <option value="4th">4th</option>
+                  <option value="5th">5th</option>
+                  <option value="6th">6th</option>
+                  <option value="7th">7th</option>
+                  <option value="8th">8th</option>
+                  <option value="9th">9th</option>
+                  <option value="10th">10th</option>
+                </select>
+              </div>
+            </div>
             <Input
               label="SECTION"
               placeholder="A"
