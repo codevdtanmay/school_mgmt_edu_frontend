@@ -52,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const data = await authApi.login({ email, password });
       
-      if (data.token && data.user) {
+      if ( data.user) {
         localStorage.setItem('school_erp_token', data.token);
         localStorage.setItem('school_erp_user', JSON.stringify(data.user));
         localStorage.setItem('school_erp_role', data.user.role);

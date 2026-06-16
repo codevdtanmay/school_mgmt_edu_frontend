@@ -2,13 +2,30 @@ import axiosInstance from '../services/axiosInstance';
 import { Student } from '../types';
 
 export const studentApi = {
-  getStudents: async (): Promise<Student[]> => {
-    const response = await axiosInstance.get('/students');
-    return response.data;
-  },
+getStudents: async (): Promise<Student[]> => {
+  const response = await axiosInstance.get('/student');
+
+  const students = response.data.students.map((student: any) => ({
+    id: student._id,
+    name: student.userId?.name,
+    email: student.userId?.email,
+    admissionNo: student.admissionNo,
+    class: student.class,
+    section: student.section,
+    rollNo: student.rollNo,
+    fatherName: student.fatherName,
+    motherName: student.motherName,
+    phone: student.phone,
+    parentName: student.fatherName,
+  }));
+
+  console.log("MAPPED STUDENTS:", students);
+
+  return students;
+},
 
   addStudent: async (studentData: Omit<Student, 'id' | 'rollNumber' | 'admissionDate'>): Promise<Student> => {
-    const response = await axiosInstance.post('/students', studentData);
+    const response = await axiosInstance.post('/student/add', studentData);
     return response.data;
   },
 
@@ -28,11 +45,11 @@ export const studentApi = {
   },
 
   updateStudent: async (id: string, studentData: Partial<Student>): Promise<Student> => {
-    const response = await axiosInstance.put(`/students/${id}`, studentData);
+    const response = await axiosInstance.patch(`/student/${id}`, studentData);
     return response.data;
   },
 
   deleteStudent: async (id: string): Promise<void> => {
-    await axiosInstance.delete(`/students/${id}`);
+    await axiosInstance.delete(`/student/${id}`);
   }
 };

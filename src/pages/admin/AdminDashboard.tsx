@@ -47,6 +47,7 @@ import FeeCollectionWidget from '../../components/dashboard/FeeCollectionWidget'
 import StudentDistribution from '../../components/dashboard/StudentDistribution';
 
 // Services/API
+import { feeApi } from '../../api/feeApi';
 import { studentApi } from '../../api/studentApi';
 import { teacherApi } from '../../api/teacherApi';
 import { noticeApi, dashboardApi } from '../../api/noticeApi';
@@ -76,70 +77,90 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
   // --- CUSTOM STUDENT FEES RECORDS (INR PRESETS) ---
-  const [feeRecords, setFeeRecords] = useState<{
-    id: string;
-    name: string;
-    className: string;
-    dueAmount: number;
-    totalFee: number;
-    paidAmount: number;
-    status: 'Partial' | 'Paid' | 'Pending';
-    admissionNo: string;
-    paymentHistory: { date: string; amount: number }[];
-  }[]>([
-    {
-      id: 'fee-1',
-      name: 'Rahul Kumar',
-      className: '10-A',
-      dueAmount: 800,
-      totalFee: 2800,
-      paidAmount: 2000,
-      status: 'Partial',
-      admissionNo: 'SOPF002',
-      paymentHistory: [
-        { date: '15 June 2026', amount: 2000 },
-        { date: '01 May 2026', amount: 2800 },
-        { date: '01 April 2026', amount: 2800 }
-      ]
-    },
-    {
-      id: 'fee-2',
-      name: 'Aman',
-      className: '9-B',
-      dueAmount: 0,
-      totalFee: 2800,
-      paidAmount: 2800,
-      status: 'Paid',
-      admissionNo: 'SOPF003',
-      paymentHistory: [
-        { date: '12 June 2026', amount: 2800 },
-        { date: '05 May 2026', amount: 2800 }
-      ]
-    },
-    {
-      id: 'fee-3',
-      name: 'Riya',
-      className: '10-A',
-      dueAmount: 2800,
-      totalFee: 2800,
-      paidAmount: 0,
-      status: 'Pending',
-      admissionNo: 'SOPF004',
-      paymentHistory: []
-    }
-  ]);
+  interface FeeRecord {
+  id: string;
+  studentId: string;
+  name: string;
+  email: string;
+  admissionNo: string;
+  className: string;
+  totalFee: number;
+  paidAmount: number;
+  dueAmount: number;
+  status: 'Pending' | 'Partial' | 'Paid';
+  paymentHistory?: {
+    date: string;
+    amount: number;
+  }[];
+}
+const [feeRecords, setFeeRecords] = useState<FeeRecord[]>([]);
 
-  const [selectedFeeStudent, setSelectedFeeStudent] = useState<{
-    id: string;
-    name: string;
-    className: string;
-    dueAmount: number;
-    totalFee: number;
-    paidAmount: number;
-    status: 'Partial' | 'Paid' | 'Pending';
-    admissionNo: string;
-    paymentHistory: { date: string; amount: number }[];
-  } | null>(null);
+const [selectedFeeStudent, setSelectedFeeStudent] =
+  useState<FeeRecord | null>(null);
+  // const [feeRecords, setFeeRecords] = useState<{
+  //   id: string;
+  //   name: string;
+  //   className: string;
+  //   dueAmount: number;
+  //   totalFee: number;
+  //   paidAmount: number;
+  //   status: 'Partial' | 'Paid' | 'Pending';
+  //   admissionNo: string;
+  //   paymentHistory: { date: string; amount: number }[];
+  // }[]>([
+  //   {
+  //     id: 'fee-1',
+  //     name: 'Rahul Kumar',
+  //     className: '10-A',
+  //     dueAmount: 800,
+  //     totalFee: 2800,
+  //     paidAmount: 2000,
+  //     status: 'Partial',
+  //     admissionNo: 'SOPF002',
+  //     paymentHistory: [
+  //       { date: '15 June 2026', amount: 2000 },
+  //       { date: '01 May 2026', amount: 2800 },
+  //       { date: '01 April 2026', amount: 2800 }
+  //     ]
+  //   },
+  //   {
+  //     id: 'fee-2',
+  //     name: 'Aman',
+  //     className: '9-B',
+  //     dueAmount: 0,
+  //     totalFee: 2800,
+  //     paidAmount: 2800,
+  //     status: 'Paid',
+  //     admissionNo: 'SOPF003',
+  //     paymentHistory: [
+  //       { date: '12 June 2026', amount: 2800 },
+  //       { date: '05 May 2026', amount: 2800 }
+  //     ]
+  //   },
+  //   {
+  //     id: 'fee-3',
+  //     name: 'Riya',
+  //     className: '10-A',
+  //     dueAmount: 2800,
+  //     totalFee: 2800,
+  //     paidAmount: 0,
+  //     status: 'Pending',
+  //     admissionNo: 'SOPF004',
+  //     paymentHistory: []
+  //   }
+  // ]);
+
+  // const [selectedFeeStudent, setSelectedFeeStudent] = useState<{
+  //   id: string;
+  //   name: string;
+  //   className: string;
+  //   dueAmount: number;
+  //   totalFee: number;
+  //   paidAmount: number;
+  //   status: 'Partial' | 'Paid' | 'Pending';
+  //   admissionNo: string;
+  //   paymentHistory: { date: string; amount: number }[];
+  // } | null>(null);
   
   const [feeSearchQuery, setFeeSearchQuery] = useState('');
   const [feeClassFilter, setFeeClassFilter] = useState('All');
@@ -219,36 +240,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [submitLoading, setSubmitLoading] = useState(false);
 
   // --- FETCH REFRESH ROUTINE ---
-  useEffect(() => {
-    const loadDashboardData = async () => {
-      setLoading(true);
-      try {
-        const [statsRes, noticeRes, activityRes, feeRes, distRes, studentsRes, teachersRes] = await Promise.all([
-          dashboardApi.getStats(),
-          noticeApi.getRecentNotices(),
-          dashboardApi.getActivities(),
-          studentApi.getFeesOverview(),
-          studentApi.getStudentDistribution(),
-          studentApi.getStudents(),
-          teacherApi.getTeachers()
-        ]);
+useEffect(() => {
+  const loadDashboardData = async () => {
+    setLoading(true);
 
-        setStats(statsRes);
-        setNotices(noticeRes);
-        setActivities(activityRes);
-        setFees(feeRes);
-        setDistribution(distRes);
-        setStudents(studentsRes);
-        setTeachers(teachersRes);
-      } catch (err) {
-        console.error('Error synchronizing school logs:', err);
-      } finally {
-        setLoading(false);
+    try {
+      const studentsRes = await studentApi.getStudents();
+      const feesRes = await feeApi.getAllFees();
+
+      setStudents(studentsRes);
+
+      setFeeRecords(feesRes);
+
+      if (feesRes.length > 0) {
+        setSelectedFeeStudent(feesRes[0]);
       }
-    };
 
-    loadDashboardData();
-  }, [refreshTrigger]);
+    } catch (err) {
+      console.error("Error synchronizing school logs:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadDashboardData();
+}, [refreshTrigger]);
 
   const triggerDataRefresh = () => {
     setRefreshTrigger(prev => prev + 1);

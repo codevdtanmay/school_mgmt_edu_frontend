@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Student, Teacher, Notice, Activity, DashboardStats, FeeSummary } from '../types';
 
-const enableMock = true; // Easily flip to false to connect to a real live backend API!
+const enableMock = false; // Easily flip to false to connect to a real live backend API!
 
 // --- SEED DATA & IN-MEMORY LOCALSTORAGE DATABASE ---
 const STORAGE_PREFIX = 'pansy_erp_v3_';
@@ -525,11 +525,12 @@ const handleMockRequest = (config: any): Promise<any> => {
 
 // Set up the base Axios instance
 const axiosInstance = axios.create({
-  baseURL: (import.meta as any).env?.VITE_API_URL || '/api',
+  baseURL: "http://localhost:3000/api",
   headers: {
     'Content-Type': 'application/json',
   },
-  adapter: enableMock ? (config) => handleMockRequest(config) : undefined,
+  withCredentials: true
+//   adapter: enableMock ? (config) => handleMockRequest(config) : undefined,
 });
 
 // Attach authorization headers automatically
