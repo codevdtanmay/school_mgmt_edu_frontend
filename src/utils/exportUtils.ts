@@ -483,20 +483,20 @@ export const printReceiptBill = (receipt: {
 
               <div class="amount-highlight-box">
                 <div style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">Net Paid Settle</div>
-                <div class="amount-txt">₹${receipt.amount.toLocaleString()}</div>
+                <div class="amount-txt">₹${(receipt.amount || 0).toLocaleString()}</div>
               </div>
 
               <div class="row-item">
                 <span class="row-lbl">Tution Fees Master Total:</span>
-                <span class="row-val">₹${receipt.totalFee.toLocaleString()}</span>
+                <span class="row-val">₹${(receipt.totalFee || 0).toLocaleString()}</span>
               </div>
               <div class="row-item">
                 <span class="row-lbl">Cumulative Paid Fees:</span>
-                <span class="row-val" style="color: #10b981;">₹${receipt.paidAmountTotal.toLocaleString()}</span>
+                <span class="row-val" style="color: #10b981;">₹${(receipt.paidAmountTotal || 0).toLocaleString()}</span>
               </div>
               <div class="row-item dark">
                 <span class="row-lbl">Remaining Due Fees:</span>
-                <span class="row-val" style="color: #ef4444;">₹${receipt.dueAmountRemaining.toLocaleString()}</span>
+                <span class="row-val" style="color: #ef4444;">₹${(receipt.dueAmountRemaining || 0).toLocaleString()}</span>
               </div>
             </div>
 
