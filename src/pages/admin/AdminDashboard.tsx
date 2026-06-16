@@ -24,7 +24,8 @@ import {
   Download,
   Edit2,
   Trash2,
-  ShieldAlert
+  ShieldAlert,
+  Eye
 } from 'lucide-react';
 
 // Export Utilities
@@ -47,11 +48,11 @@ import FeeCollectionWidget from '../../components/dashboard/FeeCollectionWidget'
 import StudentDistribution from '../../components/dashboard/StudentDistribution';
 
 // Services/API
-import { feeApi } from '../../api/feeApi';
 import { studentApi } from '../../api/studentApi';
 import { teacherApi } from '../../api/teacherApi';
 import { noticeApi, dashboardApi } from '../../api/noticeApi';
-import { DashboardStats, Notice, Activity, FeeSummary, Student, Teacher } from '../../types';
+import { feeStructureApi } from '../../api/feeStructureApi';
+import { DashboardStats, Notice, Activity, FeeSummary, Student, Teacher, FeeStructure } from '../../types';
 
 interface AdminDashboardProps {
   currentTab: string;
@@ -72,99 +73,98 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [distribution, setDistribution] = useState<Record<string, number> | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
+  const [isFeeStructureModalOpen, setIsFeeStructureModalOpen] = useState(false);
+  const [editingFeeStructureId, setEditingFeeStructureId] = useState<string | null>(null);
+  const [selectedFeeStructure, setSelectedFeeStructure] = useState<FeeStructure | null>(null);
+  const [feeStructureForm, setFeeStructureForm] = useState({
+    class: 'Class 1',
+    admissionFee: '',
+    tuitionFee: '',
+    computerFee: '',
+    examFee: '',
+    culturalActivityFee: '',
+    academicSession: '2026-27',
+    juneAmount: '',
+    septemberAmount: '',
+    decemberAmount: '',
+    marchAmount: ''
+  });
 
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
   // --- CUSTOM STUDENT FEES RECORDS (INR PRESETS) ---
-  interface FeeRecord {
-  id: string;
-  studentId: string;
-  name: string;
-  email: string;
-  admissionNo: string;
-  className: string;
-  totalFee: number;
-  paidAmount: number;
-  dueAmount: number;
-  status: 'Pending' | 'Partial' | 'Paid';
-  paymentHistory?: {
-    date: string;
-    amount: number;
-  }[];
-}
-const [feeRecords, setFeeRecords] = useState<FeeRecord[]>([]);
+  const [feeRecords, setFeeRecords] = useState<{
+    id: string;
+    name: string;
+    className: string;
+    dueAmount: number;
+    totalFee: number;
+    paidAmount: number;
+    status: 'Partial' | 'Paid' | 'Pending';
+    admissionNo: string;
+    paymentHistory: { date: string; amount: number }[];
+  }[]>([
+    {
+      id: 'fee-1',
+      name: 'Rahul Kumar',
+      className: '10-A',
+      dueAmount: 800,
+      totalFee: 2800,
+      paidAmount: 2000,
+      status: 'Partial',
+      admissionNo: 'SOPF002',
+      paymentHistory: [
+        { date: '15 June 2026', amount: 2000 },
+        { date: '01 May 2026', amount: 2800 },
+        { date: '01 April 2026', amount: 2800 }
+      ]
+    },
+    {
+      id: 'fee-2',
+      name: 'Aman',
+      className: '9-B',
+      dueAmount: 0,
+      totalFee: 2800,
+      paidAmount: 2800,
+      status: 'Paid',
+      admissionNo: 'SOPF003',
+      paymentHistory: [
+        { date: '12 June 2026', amount: 2800 },
+        { date: '05 May 2026', amount: 2800 }
+      ]
+    },
+    {
+      id: 'fee-3',
+      name: 'Riya',
+      className: '10-A',
+      dueAmount: 2800,
+      totalFee: 2800,
+      paidAmount: 0,
+      status: 'Pending',
+      admissionNo: 'SOPF004',
+      paymentHistory: []
+    }
+  ]);
 
-const [selectedFeeStudent, setSelectedFeeStudent] =
-  useState<FeeRecord | null>(null);
-  // const [feeRecords, setFeeRecords] = useState<{
-  //   id: string;
-  //   name: string;
-  //   className: string;
-  //   dueAmount: number;
-  //   totalFee: number;
-  //   paidAmount: number;
-  //   status: 'Partial' | 'Paid' | 'Pending';
-  //   admissionNo: string;
-  //   paymentHistory: { date: string; amount: number }[];
-  // }[]>([
-  //   {
-  //     id: 'fee-1',
-  //     name: 'Rahul Kumar',
-  //     className: '10-A',
-  //     dueAmount: 800,
-  //     totalFee: 2800,
-  //     paidAmount: 2000,
-  //     status: 'Partial',
-  //     admissionNo: 'SOPF002',
-  //     paymentHistory: [
-  //       { date: '15 June 2026', amount: 2000 },
-  //       { date: '01 May 2026', amount: 2800 },
-  //       { date: '01 April 2026', amount: 2800 }
-  //     ]
-  //   },
-  //   {
-  //     id: 'fee-2',
-  //     name: 'Aman',
-  //     className: '9-B',
-  //     dueAmount: 0,
-  //     totalFee: 2800,
-  //     paidAmount: 2800,
-  //     status: 'Paid',
-  //     admissionNo: 'SOPF003',
-  //     paymentHistory: [
-  //       { date: '12 June 2026', amount: 2800 },
-  //       { date: '05 May 2026', amount: 2800 }
-  //     ]
-  //   },
-  //   {
-  //     id: 'fee-3',
-  //     name: 'Riya',
-  //     className: '10-A',
-  //     dueAmount: 2800,
-  //     totalFee: 2800,
-  //     paidAmount: 0,
-  //     status: 'Pending',
-  //     admissionNo: 'SOPF004',
-  //     paymentHistory: []
-  //   }
-  // ]);
-
-  // const [selectedFeeStudent, setSelectedFeeStudent] = useState<{
-  //   id: string;
-  //   name: string;
-  //   className: string;
-  //   dueAmount: number;
-  //   totalFee: number;
-  //   paidAmount: number;
-  //   status: 'Partial' | 'Paid' | 'Pending';
-  //   admissionNo: string;
-  //   paymentHistory: { date: string; amount: number }[];
-  // } | null>(null);
+  const [selectedFeeStudent, setSelectedFeeStudent] = useState<{
+    id: string;
+    name: string;
+    className: string;
+    dueAmount: number;
+    totalFee: number;
+    paidAmount: number;
+    status: 'Partial' | 'Paid' | 'Pending';
+    admissionNo: string;
+    paymentHistory: { date: string; amount: number }[];
+  } | null>(null);
   
   const [feeSearchQuery, setFeeSearchQuery] = useState('');
   const [feeClassFilter, setFeeClassFilter] = useState('All');
   const [studentClassFilter, setStudentClassFilter] = useState('All');
+  const [feeStructureSearchQuery, setFeeStructureSearchQuery] = useState('');
+  const [feeStructureYearFilter, setFeeStructureYearFilter] = useState('All');
   
   // Custom interactive payment modal states
   const [isCustomPayModalOpen, setIsCustomPayModalOpen] = useState(false);
@@ -240,31 +240,38 @@ const [selectedFeeStudent, setSelectedFeeStudent] =
   const [submitLoading, setSubmitLoading] = useState(false);
 
   // --- FETCH REFRESH ROUTINE ---
-useEffect(() => {
-  const loadDashboardData = async () => {
-    setLoading(true);
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      setLoading(true);
+      try {
+        const [statsRes, noticeRes, activityRes, feeRes, distRes, studentsRes, teachersRes, feeStructuresRes] = await Promise.all([
+          dashboardApi.getStats(),
+          noticeApi.getRecentNotices(),
+          dashboardApi.getActivities(),
+          studentApi.getFeesOverview(),
+          studentApi.getStudentDistribution(),
+          studentApi.getStudents(),
+          teacherApi.getTeachers(),
+          feeStructureApi.getFeeStructures()
+        ]);
 
-    try {
-      const studentsRes = await studentApi.getStudents();
-      const feesRes = await feeApi.getAllFees();
-
-      setStudents(studentsRes);
-
-      setFeeRecords(feesRes);
-
-      if (feesRes.length > 0) {
-        setSelectedFeeStudent(feesRes[0]);
+        setStats(statsRes);
+        setNotices(noticeRes);
+        setActivities(activityRes);
+        setFees(feeRes);
+        setDistribution(distRes);
+        setStudents(studentsRes);
+        setTeachers(teachersRes);
+        setFeeStructures(feeStructuresRes);
+      } catch (err) {
+        console.error('Error synchronizing school logs:', err);
+      } finally {
+        setLoading(false);
       }
+    };
 
-    } catch (err) {
-      console.error("Error synchronizing school logs:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  loadDashboardData();
-}, [refreshTrigger]);
+    loadDashboardData();
+  }, [refreshTrigger]);
 
   const triggerDataRefresh = () => {
     setRefreshTrigger(prev => prev + 1);
@@ -485,6 +492,106 @@ useEffect(() => {
     }
   };
 
+  const handleAddFeeStructureClick = () => {
+    setEditingFeeStructureId(null);
+    setFeeStructureForm({
+      class: 'Class 1',
+      admissionFee: '',
+      tuitionFee: '',
+      computerFee: '',
+      examFee: '',
+      culturalActivityFee: '',
+      academicSession: '2026-27',
+      juneAmount: '',
+      septemberAmount: '',
+      decemberAmount: '',
+      marchAmount: ''
+    });
+    setIsFeeStructureModalOpen(true);
+  };
+
+  const handleEditFeeStructureClick = (fs: FeeStructure) => {
+    setEditingFeeStructureId(fs.id);
+    setFeeStructureForm({
+      class: fs.class || 'Class 1',
+      admissionFee: String(fs.admissionFee || ''),
+      tuitionFee: String(fs.tuitionFee || ''),
+      computerFee: String(fs.computerFee || ''),
+      examFee: String(fs.examFee || ''),
+      culturalActivityFee: String(fs.culturalActivityFee || ''),
+      academicSession: fs.academicSession || '2026-27',
+      juneAmount: String(fs.juneAmount || ''),
+      septemberAmount: String(fs.septemberAmount || ''),
+      decemberAmount: String(fs.decemberAmount || ''),
+      marchAmount: String(fs.marchAmount || '')
+    });
+    setIsFeeStructureModalOpen(true);
+  };
+
+  const handleAutoGenerateInstallments = () => {
+    const total = 
+      (Number(feeStructureForm.admissionFee) || 0) +
+      (Number(feeStructureForm.tuitionFee) || 0) +
+      (Number(feeStructureForm.computerFee) || 0) +
+      (Number(feeStructureForm.examFee) || 0) +
+      (Number(feeStructureForm.culturalActivityFee) || 0);
+
+    const equalAmount = Math.round(total / 4);
+    setFeeStructureForm(prev => ({
+      ...prev,
+      juneAmount: String(equalAmount),
+      septemberAmount: String(equalAmount),
+      decemberAmount: String(equalAmount),
+      marchAmount: String(total - (equalAmount * 3))
+    }));
+  };
+
+  const handleFeeStructureSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormErrors({});
+
+    setSubmitLoading(true);
+    try {
+      const payload = {
+        class: feeStructureForm.class,
+        admissionFee: Number(feeStructureForm.admissionFee) || 0,
+        tuitionFee: Number(feeStructureForm.tuitionFee) || 0,
+        computerFee: Number(feeStructureForm.computerFee) || 0,
+        examFee: Number(feeStructureForm.examFee) || 0,
+        culturalActivityFee: Number(feeStructureForm.culturalActivityFee) || 0,
+        academicSession: feeStructureForm.academicSession,
+        juneAmount: Number(feeStructureForm.juneAmount) || 0,
+        septemberAmount: Number(feeStructureForm.septemberAmount) || 0,
+        decemberAmount: Number(feeStructureForm.decemberAmount) || 0,
+        marchAmount: Number(feeStructureForm.marchAmount) || 0,
+      };
+
+      if (editingFeeStructureId) {
+        await feeStructureApi.updateFeeStructure(editingFeeStructureId, payload as any);
+        setEditingFeeStructureId(null);
+      } else {
+        await feeStructureApi.addFeeStructure(payload as any);
+      }
+      setIsFeeStructureModalOpen(false);
+      triggerDataRefresh();
+    } catch (err: any) {
+      setFormErrors({ submit: err.message || 'Action failed' });
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const handleDeleteFeeStructureClick = async (id: string) => {
+    if (confirm('Are you sure you want to delete this fee structure?')) {
+      try {
+        await feeStructureApi.deleteFeeStructure(id);
+        triggerDataRefresh();
+      } catch (err) {
+        console.error('Error deleting fee structure:', err);
+      }
+    }
+  };
+
   const handleExportStudentsExcel = () => {
     const headers = ['ID', 'Name', 'Email', 'Admission No', 'Class', 'Section', 'Roll No', 'Class Category', 'Gender', 'Phone', 'Parent Name', 'Admission Date'];
     const keys = ['id', 'name', 'email', 'admissionNo', 'class', 'section', 'rollNo', 'classCategory', 'gender', 'phone', 'parentName', 'admissionDate'];
@@ -553,6 +660,27 @@ useEffect(() => {
     exportToPrintablePDF('Financial center ledger summary', headers, rows, 'fees_ledger_report');
   };
 
+  const handleExportFeeStructuresExcel = () => {
+    const headers = ['ID', 'Class', 'Admission Fee', 'Tuition Fee', 'Computer Fee', 'Exam Fee', 'Cultural Activity Fee', 'Academic Session', 'Total Fee', 'June Installment', 'September Installment', 'December Installment', 'March Installment'];
+    const keys = ['id', 'class', 'admissionFee', 'tuitionFee', 'computerFee', 'examFee', 'culturalActivityFee', 'academicSession', 'totalFee', 'juneAmount', 'septemberAmount', 'decemberAmount', 'marchAmount'];
+    exportToExcel(feeStructures, headers, keys, `Fee_Structures_${new Date().toISOString().split('T')[0]}`);
+  };
+
+  const handleExportFeeStructuresPDF = () => {
+    const headers = ['Class', 'Admission Fee', 'Tuition Fee', 'Computer Fee', 'Exam Fee', 'Cultural Activity Fee', 'Academic Session', 'Total Fee'];
+    const rows = feeStructures.map(fs => [
+      fs.class,
+      `₹${fs.admissionFee}`,
+      `₹${fs.tuitionFee}`,
+      `₹${fs.computerFee}`,
+      `₹${fs.examFee}`,
+      `₹${fs.culturalActivityFee}`,
+      fs.academicSession,
+      `₹${fs.totalFee}`
+    ]);
+    exportToPrintablePDF('Fee Structures Report Policy Matrix', headers, rows, 'fee_structures_policy_matrix');
+  };
+
   // --- FILTERED DIRECTORIES ---
   const filteredStudents = students.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(query) ||
@@ -571,6 +699,14 @@ useEffect(() => {
     t.subject.toLowerCase().includes(query) ||
     t.department.toLowerCase().includes(query)
   );
+
+  const filteredFeeStructures = feeStructures.filter(fs => {
+    const matchesSearch = !feeStructureSearchQuery || (fs.class || '').toLowerCase().includes(feeStructureSearchQuery.toLowerCase());
+    const matchesYear = feeStructureYearFilter === 'All' || fs.academicSession === feeStructureYearFilter;
+    return matchesSearch && matchesYear;
+  });
+
+  const academicSessionOptions = Array.from(new Set(feeStructures.map(fs => fs.academicSession))).filter(Boolean);
 
   // Render Skeleton while initial loading is active
   if (loading && !stats) {
@@ -602,16 +738,19 @@ useEffect(() => {
                currentTab === 'students' ? 'Student Registry & Roster' :
                currentTab === 'teachers' ? 'Faculty Directories' :
                currentTab === 'fees' ? 'Financial Center' :
+               currentTab === 'fee-structure' ? 'Fee Structure Policy Matrix' :
                currentTab === 'notices' ? 'Bulletin Bullet Board' : 
                currentTab.toUpperCase() + ' panel'}
             </h1>
             <span className="hidden sm:inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200/50 text-blue-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-              AY 2025-26
+              {currentTab === 'fee-structure' ? 'AY 2026-27' : 'AY 2025-26'}
             </span>
           </div>
           <p className="text-xs text-slate-500 font-semibold mt-1">
             {currentTab === 'dashboard' 
               ? 'Welcome back. Monitoring activity at The School of Pansy Flowers.' 
+              : currentTab === 'fee-structure'
+              ? 'Configure standard grade-wise default tuition, assessments, and operational levies.'
               : `Manage operational parameters under The School of Pansy Flowers ${currentTab} directory.`}
           </p>
         </div>
@@ -635,6 +774,11 @@ useEffect(() => {
         {currentTab === 'fees' && (
           <Button onClick={() => setIsFeeModalOpen(true)} leftIcon={<Plus size={16} />}>
             Record Payment
+          </Button>
+        )}
+        {currentTab === 'fee-structure' && (
+          <Button onClick={handleAddFeeStructureClick} leftIcon={<Plus size={16} />}>
+            Add Fee Structure
           </Button>
         )}
       </div>
@@ -1448,6 +1592,267 @@ useEffect(() => {
       })()}
 
       {/* --- CORE BULLETIN NOTICES TAB --- */}
+      {currentTab === 'fee-structure' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left panel: Matrix table with Search & Filters */}
+          <div className="lg:col-span-8 space-y-4">
+            <Card className="overflow-hidden">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 mb-4 select-none">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:max-w-xl">
+                  {/* Search bar */}
+                  <div className="relative w-full sm:max-w-xs">
+                    <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={feeStructureSearchQuery}
+                      onChange={(e) => setFeeStructureSearchQuery(e.target.value)}
+                      placeholder="Search class (e.g. Class 1)..."
+                      className="w-full text-xs font-semibold pl-9 pr-4 py-2 border border-slate-200 focus:border-blue-500 rounded-lg outline-hidden"
+                    />
+                  </div>
+                  {/* Year Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider select-none whitespace-nowrap">Session:</span>
+                    <select
+                      value={feeStructureYearFilter}
+                      onChange={(e) => setFeeStructureYearFilter(e.target.value)}
+                      className="px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-700 focus:border-blue-500 cursor-pointer outline-hidden min-w-[110px]"
+                    >
+                      <option value="All">All Years</option>
+                      <option value="2026-27">2026-27</option>
+                      <option value="2025-26">2025-26</option>
+                      {academicSessionOptions.filter(y => y !== '2026-27' && y !== '2025-26').map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Export actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleExportFeeStructuresExcel}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-755 hover:bg-emerald-100 border border-emerald-200/60 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer text-emerald-700"
+                  >
+                    <Download size={14} /> <span className="hidden sm:inline">Export Excel</span>
+                  </button>
+                  <button
+                    onClick={handleExportFeeStructuresPDF}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-755 hover:bg-blue-100 border border-blue-200/60 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer text-blue-700"
+                  >
+                    <FileText size={14} /> <span className="hidden sm:inline">Export PDF</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-wider font-sans">
+                      <th className="py-3 px-4 font-black">Class</th>
+                      <th className="py-3 px-4 font-black">Admission Fee</th>
+                      <th className="py-3 px-4 font-black">Tuition Fee</th>
+                      <th className="py-3 px-4 font-black">Computer Fee</th>
+                      <th className="py-3 px-4 font-black">Exam Fee</th>
+                      <th className="py-3 px-4 font-black">Cultural Activity Fee</th>
+                      <th className="py-3 px-4 font-black text-slate-900">Total Fee</th>
+                      <th className="py-3 px-4 font-black text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 text-xs font-semibold text-slate-700 font-sans">
+                    {filteredFeeStructures.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-slate-400 font-bold select-none">
+                          No fee structures match the current criteria. Click "Add Fee Structure" to establish policy.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredFeeStructures.map((fs) => {
+                        const displayStructure = selectedFeeStructure || filteredFeeStructures[0] || null;
+                        const isSelected = displayStructure ? displayStructure.id === fs.id : false;
+                        return (
+                          <tr 
+                            key={fs.id} 
+                            onClick={() => setSelectedFeeStructure(fs)}
+                            className={`transition-all duration-150 cursor-pointer ${
+                              isSelected 
+                                ? 'bg-blue-50/50 hover:bg-blue-50/70 border-l-2 border-l-blue-600' 
+                                : 'hover:bg-slate-50/70 border-l-2 border-l-transparent'
+                            }`}
+                          >
+                            <td className="py-3 px-4 font-extrabold text-slate-900">
+                              <span className="flex items-center gap-1.5">
+                                {fs.class}
+                                {isSelected && <Badge variant="primary" size="sm">Selected</Badge>}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-slate-600">₹{(fs.admissionFee || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4 text-emerald-600 font-bold">₹{(fs.tuitionFee || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4 text-slate-600">₹{(fs.computerFee || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4 text-slate-600">₹{(fs.examFee || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4 text-slate-600">₹{(fs.culturalActivityFee || 0).toLocaleString()}</td>
+                            <td className="py-3 px-4 font-black text-slate-950 text-sm">
+                              ₹{(fs.totalFee || 0).toLocaleString()}
+                            </td>
+                            <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => setSelectedFeeStructure(fs)}
+                                  className="p-1 px-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                  title="View details breakdown"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleEditFeeStructureClick(fs)}
+                                  className="p-1 px-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Edit Policy"
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteFeeStructureClick(fs.id)}
+                                  className="p-1 px-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete Policy"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+
+          {/* Right panel: Details Panel */}
+          <div className="lg:col-span-4 space-y-4">
+            {(() => {
+              const displayStructure = selectedFeeStructure || filteredFeeStructures[0] || null;
+              if (displayStructure) {
+                return (
+                  <Card className="border border-slate-100 shadow-sm bg-white overflow-hidden p-0">
+                    <div className="p-4 bg-slate-900 text-white select-none">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Selected Structure</span>
+                        <span className="text-xs bg-blue-600 px-2.5 py-0.5 rounded-full font-black text-white text-[9px] uppercase tracking-wide">
+                          {displayStructure.academicSession}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-black mt-1 font-sans">{displayStructure.class}</h3>
+                    </div>
+
+                    <div className="p-5 space-y-5">
+                      {/* Fee Breakdown */}
+                      <div>
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 leading-none">Fee Breakdown</h4>
+                        <div className="space-y-2 font-mono text-xs text-slate-600">
+                          <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-2">
+                            <span className="font-medium text-slate-500">Admission Fee</span>
+                            <span className="font-extrabold text-slate-800">₹{(displayStructure.admissionFee || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-2">
+                            <span className="font-medium text-slate-500">Tuition Fee</span>
+                            <span className="font-extrabold text-slate-800">₹{(displayStructure.tuitionFee || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-2">
+                            <span className="font-medium text-slate-500">Computer Fee</span>
+                            <span className="font-extrabold text-slate-800">₹{(displayStructure.computerFee || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-2">
+                            <span className="font-medium text-slate-500">Exam Fee</span>
+                            <span className="font-extrabold text-slate-800">₹{(displayStructure.examFee || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between border-b border-dashed border-slate-100 pb-2">
+                            <span className="font-medium text-slate-500">Cultural Activity Fee</span>
+                            <span className="font-extrabold text-slate-800">₹{(displayStructure.culturalActivityFee || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between pt-2 font-sans text-sm font-black text-slate-900 select-none">
+                            <span>Total Fee</span>
+                            <span className="text-emerald-600 text-base">₹{(displayStructure.totalFee || 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Installment Plan */}
+                      <div className="pt-3 border-t border-slate-100">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 leading-none">Installment Plan</h4>
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between p-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-lg transition-colors">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                              <span className="text-xs font-bold text-slate-800">June</span>
+                            </div>
+                            <div className="flex items-center gap-2 font-mono">
+                              <span className="text-xs font-black text-slate-905">₹{(displayStructure.juneAmount || 0).toLocaleString()}</span>
+                              <Badge variant={displayStructure.juneStatus === 'Paid' ? 'success' : 'warning'} size="sm">
+                                {displayStructure.juneStatus || 'Pending'}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between p-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-lg transition-colors">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                              <span className="text-xs font-bold text-slate-800">September</span>
+                            </div>
+                            <div className="flex items-center gap-2 font-mono">
+                              <span className="text-xs font-black text-slate-905">₹{(displayStructure.septemberAmount || 0).toLocaleString()}</span>
+                              <Badge variant={displayStructure.septemberStatus === 'Paid' ? 'success' : 'warning'} size="sm">
+                                {displayStructure.septemberStatus || 'Pending'}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between p-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-lg transition-colors">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                              <span className="text-xs font-bold text-slate-800">December</span>
+                            </div>
+                            <div className="flex items-center gap-2 font-mono">
+                              <span className="text-xs font-black text-slate-905">₹{(displayStructure.decemberAmount || 0).toLocaleString()}</span>
+                              <Badge variant={displayStructure.decemberStatus === 'Paid' ? 'success' : 'warning'} size="sm">
+                                {displayStructure.decemberStatus || 'Pending'}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between p-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-lg transition-colors">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
+                              <span className="text-xs font-bold text-slate-800">March</span>
+                            </div>
+                            <div className="flex items-center gap-2 font-mono">
+                              <span className="text-xs font-black text-slate-905">₹{(displayStructure.marchAmount || 0).toLocaleString()}</span>
+                              <Badge variant={displayStructure.marchStatus === 'Paid' ? 'success' : 'warning'} size="sm">
+                                {displayStructure.marchStatus || 'Pending'}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              }
+              return (
+                <div className="h-full min-h-[300px] border border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center p-6 text-center bg-slate-50/30">
+                  <div className="p-3 bg-slate-100 text-slate-400 rounded-full mb-2">
+                    <Eye size={18} />
+                  </div>
+                  <p className="text-xs font-bold text-slate-450">Select any class structure from the ledger to view the installment plan breakups.</p>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* --- CORE BULLETIN NOTICES TAB --- */}
       {currentTab === 'notices' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {notices.map((n) => (
@@ -1830,6 +2235,197 @@ useEffect(() => {
             />
           </div>
         </form>
+      </Modal>
+
+      {/* FEE STRUCTURE MODAL */}
+      <Modal
+        isOpen={isFeeStructureModalOpen}
+        onClose={() => { setIsFeeStructureModalOpen(false); setEditingFeeStructureId(null); }}
+        title={editingFeeStructureId ? 'Edit Fee Structure Policy' : 'Add Fee Structure Policy'}
+        footer={
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => { setIsFeeStructureModalOpen(false); setEditingFeeStructureId(null); }}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" form="fee-structure-form" isLoading={submitLoading}>
+              Save Strategy
+            </Button>
+          </div>
+        }
+      >
+        {(() => {
+          const currentModalTotal =
+            (Number(feeStructureForm.admissionFee) || 0) +
+            (Number(feeStructureForm.tuitionFee) || 0) +
+            (Number(feeStructureForm.computerFee) || 0) +
+            (Number(feeStructureForm.examFee) || 0) +
+            (Number(feeStructureForm.culturalActivityFee) || 0);
+
+          return (
+            <form id="fee-structure-form" onSubmit={handleFeeStructureSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="w-full flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-slate-700 tracking-wide select-none uppercase">
+                    Class Name
+                  </label>
+                  <select
+                    className="w-full px-3.5 py-2 text-sm text-slate-900 bg-white border border-slate-200 hover:border-slate-300 focus:border-blue-500 rounded-lg transition-all duration-200 cursor-pointer outline-hidden"
+                    value={feeStructureForm.class}
+                    onChange={(e) => setFeeStructureForm({ ...feeStructureForm, class: e.target.value })}
+                    required
+                  >
+                    <option value="Class 1">Class 1</option>
+                    <option value="Class 2">Class 2</option>
+                    <option value="Class 3">Class 3</option>
+                    <option value="Class 4">Class 4</option>
+                    <option value="Class 5">Class 5</option>
+                    <option value="Class 6">Class 6</option>
+                    <option value="Class 7">Class 7</option>
+                    <option value="Class 8">Class 8</option>
+                    <option value="Class 9">Class 9</option>
+                    <option value="Class 10">Class 10</option>
+                    <option value="Nursery">Nursery</option>
+                    <option value="LKG">LKG</option>
+                    <option value="UKG">UKG</option>
+                  </select>
+                </div>
+                
+                <Input
+                  label="ACADEMIC SESSION"
+                  placeholder="e.g. 2026-27"
+                  value={feeStructureForm.academicSession}
+                  onChange={(e) => setFeeStructureForm({ ...feeStructureForm, academicSession: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="ADMISSION FEE (₹)"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 500"
+                  value={feeStructureForm.admissionFee}
+                  onChange={(e) => setFeeStructureForm({ ...feeStructureForm, admissionFee: e.target.value })}
+                  required
+                />
+                <Input
+                  label="TUITION FEE (₹)"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 1000"
+                  value={feeStructureForm.tuitionFee}
+                  onChange={(e) => setFeeStructureForm({ ...feeStructureForm, tuitionFee: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <Input
+                  label="COMPUTER FEE (₹)"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 300"
+                  value={feeStructureForm.computerFee}
+                  onChange={(e) => setFeeStructureForm({ ...feeStructureForm, computerFee: e.target.value })}
+                  required
+                />
+                <Input
+                  label="EXAM FEE (₹)"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 200"
+                  value={feeStructureForm.examFee}
+                  onChange={(e) => setFeeStructureForm({ ...feeStructureForm, examFee: e.target.value })}
+                  required
+                />
+                <Input
+                  label="CULTURAL ACTIVITY FEE (₹)"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 100"
+                  value={feeStructureForm.culturalActivityFee}
+                  onChange={(e) => setFeeStructureForm({ ...feeStructureForm, culturalActivityFee: e.target.value })}
+                  required
+                />
+              </div>
+
+              {/* Dynamic summation display box */}
+              <div className="p-4 bg-slate-50 border border-slate-150 rounded-xl flex items-center justify-between select-none">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Automatically Calculated Total Fee</span>
+                  <p className="text-[10px] text-slate-500 font-bold">Admission + Tuition + Computer + Exam + Cultural Activity</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-lg font-black text-emerald-600 font-sans">
+                    ₹{currentModalTotal.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Installments Section */}
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wide select-none">Quarterly Installments</h4>
+                  <button
+                    type="button"
+                    onClick={handleAutoGenerateInstallments}
+                    className="text-[10px] px-2.5 py-1 text-blue-700 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-lg font-black transition-all cursor-pointer active:scale-95 uppercase tracking-wide"
+                  >
+                    Auto Generate Installments
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-slate-450 leading-relaxed font-semibold select-none">
+                  Divide total fee equally into June, September, December & March amounts.
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <Input
+                    label="JUNE AMOUNT (₹)"
+                    type="number"
+                    min="0"
+                    placeholder="June"
+                    value={feeStructureForm.juneAmount}
+                    onChange={(e) => setFeeStructureForm({ ...feeStructureForm, juneAmount: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="SEPTEMBER AMOUNT (₹)"
+                    type="number"
+                    min="0"
+                    placeholder="September"
+                    value={feeStructureForm.septemberAmount}
+                    onChange={(e) => setFeeStructureForm({ ...feeStructureForm, septemberAmount: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="DECEMBER AMOUNT (₹)"
+                    type="number"
+                    min="0"
+                    placeholder="December"
+                    value={feeStructureForm.decemberAmount}
+                    onChange={(e) => setFeeStructureForm({ ...feeStructureForm, decemberAmount: e.target.value })}
+                    required
+                  />
+                  <Input
+                    label="MARCH AMOUNT (₹)"
+                    type="number"
+                    min="0"
+                    placeholder="March"
+                    value={feeStructureForm.marchAmount}
+                    onChange={(e) => setFeeStructureForm({ ...feeStructureForm, marchAmount: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              {formErrors.submit && (
+                <p className="text-xs font-bold text-red-500 animate-pulse">{formErrors.submit}</p>
+              )}
+            </form>
+          );
+        })()}
       </Modal>
 
       {/* 5. SECURE DELETE CONFIRMATION MODAL */}

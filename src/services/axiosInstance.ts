@@ -1,7 +1,7 @@
 import axios from 'axios';
-import { Student, Teacher, Notice, Activity, DashboardStats, FeeSummary } from '../types';
+import { Student, Teacher, Notice, Activity, DashboardStats, FeeSummary, FeeStructure } from '../types';
 
-const enableMock = false; // Easily flip to false to connect to a real live backend API!
+const enableMock = true; // Easily flip to false to connect to a real live backend API!
 
 // --- SEED DATA & IN-MEMORY LOCALSTORAGE DATABASE ---
 const STORAGE_PREFIX = 'pansy_erp_v3_';
@@ -44,6 +44,47 @@ const defaultFees: FeeSummary = {
   monthlyTarget: 340000,
 };
 
+const defaultFeeStructures: FeeStructure[] = [
+  {
+    id: 'fs-1',
+    class: 'Class 1',
+    admissionFee: 500,
+    tuitionFee: 1000,
+    computerFee: 300,
+    examFee: 200,
+    culturalActivityFee: 0,
+    academicSession: '2026-27',
+    totalFee: 2000,
+    juneAmount: 500,
+    septemberAmount: 500,
+    decemberAmount: 500,
+    marchAmount: 500,
+    juneStatus: 'Paid',
+    septemberStatus: 'Pending',
+    decemberStatus: 'Pending',
+    marchStatus: 'Pending'
+  },
+  {
+    id: 'fs-2',
+    class: 'Class 2',
+    admissionFee: 500,
+    tuitionFee: 1200,
+    computerFee: 300,
+    examFee: 200,
+    culturalActivityFee: 0,
+    academicSession: '2026-27',
+    totalFee: 2200,
+    juneAmount: 550,
+    septemberAmount: 550,
+    decemberAmount: 550,
+    marchAmount: 550,
+    juneStatus: 'Paid',
+    septemberStatus: 'Pending',
+    decemberStatus: 'Pending',
+    marchStatus: 'Pending'
+  },
+];
+
 // Database helper functions wrapped with localStorage
 const getDBValue = <T>(key: string, defaultValue: T): T => {
   const value = localStorage.getItem(STORAGE_PREFIX + key);
@@ -67,7 +108,12 @@ if (!localStorage.getItem(STORAGE_PREFIX + 'students')) {
   setDBValue('notices', defaultNotices);
   setDBValue('activities', defaultActivities);
   setDBValue('fees', defaultFees);
+  setDBValue('fee_structures', defaultFeeStructures);
   setDBValue('users', defaultUsers);
+}
+
+if (!localStorage.getItem(STORAGE_PREFIX + 'fee_structures')) {
+  setDBValue('fee_structures', defaultFeeStructures);
 }
 
 if (!localStorage.getItem(STORAGE_PREFIX + 'users')) {
@@ -87,6 +133,7 @@ const handleMockRequest = (config: any): Promise<any> => {
     const notices = getDBValue<Notice[]>('notices', defaultNotices);
     const activities = getDBValue<Activity[]>('activities', defaultActivities);
     const fees = getDBValue<FeeSummary>('fees', defaultFees);
+    const feeStructures = getDBValue<FeeStructure[]>('fee_structures', defaultFeeStructures);
 
     // Simulated latency: 450ms for realistic premium skeletal animations
     setTimeout(() => {
@@ -517,6 +564,82 @@ const handleMockRequest = (config: any): Promise<any> => {
         return resolveResponse(200, newTeacher);
       }
 
+      // --- FEE STRUCTURES API ---
+      if (url.includes('/fee-structures') && method === 'GET') {
+        return resolveResponse(200, feeStructures);
+      }
+
+      if (url.includes('/fee-structures') && method === 'POST') {
+        const id = `fs-${Date.now()}`;
+        const total = (Number(data.admissionFee) || 0) + 
+                      (Number(data.tuitionFee) || 0) + 
+                      (Number(data.computerFee) || 0) + 
+                      (Number(data.examFee) || 0) + 
+                      (Number(data.culturalActivityFee) || 0);
+        const newFS: FeeStructure = {
+          id,
+          class: data.class || 'Nursery',
+          admissionFee: Number(data.admissionFee) || 0,
+          tuitionFee: Number(data.tuitionFee) || 0,
+          computerFee: Number(data.computerFee) || 0,
+          examFee: Number(data.examFee) || 0,
+          culturalActivityFee: Number(data.culturalActivityFee) || 0,
+          academicSession: data.academicSession || '2026-27',
+          totalFee: total,
+          juneAmount: Number(data.juneAmount) || 0,
+          septemberAmount: Number(data.septemberAmount) || 0,
+          decemberAmount: Number(data.decemberAmount) || 0,
+          marchAmount: Number(data.marchAmount) || 0,
+          juneStatus: data.juneStatus || 'Pending',
+          septemberStatus: data.septemberStatus || 'Pending',
+          decemberStatus: data.decemberStatus || 'Pending',
+          marchStatus: data.marchStatus || 'Pending'
+        };
+        const updated = [...feeStructures, newFS];
+        setDBValue('fee_structures', updated);
+        return resolveResponse(200, newFS);
+      }
+
+      if (url.includes('/fee-structures/') && method === 'PUT') {
+        const parts = url.split('/');
+        const fsId = parts[parts.length - 1];
+        const idx = feeStructures.findIndex(f => f.id === fsId);
+        if (idx !== -1) {
+          const total = (Number(data.admissionFee) || 0) + 
+                        (Number(data.tuitionFee) || 0) + 
+                        (Number(data.computerFee) || 0) + 
+                        (Number(data.examFee) || 0) + 
+                        (Number(data.culturalActivityFee) || 0);
+          const updatedFS: FeeStructure = {
+            ...feeStructures[idx],
+            ...data,
+            admissionFee: Number(data.admissionFee) || 0,
+            tuitionFee: Number(data.tuitionFee) || 0,
+            computerFee: Number(data.computerFee) || 0,
+            examFee: Number(data.examFee) || 0,
+            culturalActivityFee: Number(data.culturalActivityFee) || 0,
+            totalFee: total,
+            juneAmount: Number(data.juneAmount) || 0,
+            septemberAmount: Number(data.septemberAmount) || 0,
+            decemberAmount: Number(data.decemberAmount) || 0,
+            marchAmount: Number(data.marchAmount) || 0,
+          };
+          const copyFS = [...feeStructures];
+          copyFS[idx] = updatedFS;
+          setDBValue('fee_structures', copyFS);
+          return resolveResponse(200, updatedFS);
+        }
+        return rejectError(404, 'Fee structure not found');
+      }
+
+      if (url.includes('/fee-structures/') && method === 'DELETE') {
+        const parts = url.split('/');
+        const fsId = parts[parts.length - 1];
+        const copyFS = feeStructures.filter(f => f.id !== fsId);
+        setDBValue('fee_structures', copyFS);
+        return resolveResponse(200, { success: true });
+      }
+
       // Catch-all response for anything else
       return resolveResponse(200, { success: true });
     }, 450);
@@ -525,12 +648,11 @@ const handleMockRequest = (config: any): Promise<any> => {
 
 // Set up the base Axios instance
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: (import.meta as any).env?.VITE_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true
-//   adapter: enableMock ? (config) => handleMockRequest(config) : undefined,
+  adapter: enableMock ? (config) => handleMockRequest(config) : undefined,
 });
 
 // Attach authorization headers automatically

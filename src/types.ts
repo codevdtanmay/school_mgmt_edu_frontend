@@ -78,3 +78,23 @@ export interface DashboardStats {
   teachersGrowth: number;
   feesGrowth: number;
 }
+
+export interface FeeStructure {
+  id: string;
+  class: string;
+  admissionFee: number;
+  tuitionFee: number;
+  computerFee: number;
+  examFee: number;
+  culturalActivityFee: number;
+  totalFee: number;
+  academicSession: string;
+  juneAmount: number;
+  septemberAmount: number;
+  decemberAmount: number;
+  marchAmount: number;
+  juneStatus?: 'Paid' | 'Pending';
+  septemberStatus?: 'Paid' | 'Pending';
+  decemberStatus?: 'Paid' | 'Pending';
+  marchStatus?: 'Paid' | 'Pending';
+}

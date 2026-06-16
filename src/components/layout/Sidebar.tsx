@@ -12,7 +12,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Menu
+  Menu,
+  Coins
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { SchoolLogo } from '../common/SchoolLogo';
@@ -41,6 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'students', label: 'Students', icon: Users },
     { id: 'teachers', label: 'Teachers', icon: GraduationCap },
     { id: 'fees', label: 'Fees', icon: DollarSign },
+    { id: 'fee-structure', label: 'Fee Structure', icon: Coins },
     { id: 'notices', label: 'Notices', icon: Megaphone },
     { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
     { id: 'results', label: 'Results', icon: Award },
