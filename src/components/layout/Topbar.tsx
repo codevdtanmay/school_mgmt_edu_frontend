@@ -64,7 +64,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         {/* Academic Tag */}
         <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200/50 text-amber-800 text-[10px] font-bold tracking-wide uppercase rounded-full">
           <Sparkles size={11} className="text-amber-500 animate-spin-pulse" />
-          <span>AY: 2025-2026</span>
+          <span>AY: 2026-2027</span>
         </div>
 
         {/* Time Badge */}
@@ -115,9 +115,10 @@ export const Topbar: React.FC<TopbarProps> = ({
             className="flex items-center gap-1.5 p-1 px-2 rounded-lg hover:bg-slate-50 hover:border-slate-200 border border-transparent transition-all cursor-pointer"
           >
             <img 
-              src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'}
+              src={user?.avatar || 'https://api.dicebear.com/7.x/notionists/svg?seed=admin'}
               alt={user?.name || 'Administrator'}
               className="h-7 w-7 rounded-md object-cover border border-slate-200 flex-shrink-0"
+              referrerPolicy="no-referrer"
             />
             <span className="text-xs font-bold text-slate-700 max-w-28 truncate hidden md:block select-none">
               {user?.name || 'Pansy Admin'}

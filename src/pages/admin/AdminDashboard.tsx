@@ -157,6 +157,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
+  const [feeModalSearchQuery, setFeeModalSearchQuery] = useState('');
 
   // Form Field States
   const [studentForm, setStudentForm] = useState({
@@ -725,7 +726,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                currentTab.toUpperCase() + ' panel'}
             </h1>
             <span className="hidden sm:inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200/50 text-blue-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-              {currentTab === 'fee-structure' ? 'AY 2026-27' : 'AY 2025-26'}
+              AY 2026-27
             </span>
           </div>
           <p className="text-xs text-slate-500 font-semibold mt-1">
@@ -1177,7 +1178,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const filteredFeeRecords = feeRecords.filter(record => {
           const matchesSearch = record.name.toLowerCase().includes(feeSearchQuery.toLowerCase()) || 
                                 record.admissionNo.toLowerCase().includes(feeSearchQuery.toLowerCase());
-          const matchesClass = feeClassFilter === 'All' || record.className === feeClassFilter;
+          
+          let matchesClass = false;
+          if (feeClassFilter === 'All') {
+            matchesClass = true;
+          } else {
+            const classParts = record.className.split('-');
+            const recordBase = classParts[0].trim().toLowerCase();
+            const filterLower = feeClassFilter.trim().toLowerCase();
+
+            // Match equivalence patterns
+            const isNurseryMatch = filterLower === 'nursery' && recordBase === 'nursery';
+            const isJKGMatch = filterLower === 'jkg' && (recordBase === 'jkg' || recordBase === 'lkg');
+            const isSKGMatch = filterLower === 'skg' && (recordBase === 'skg' || recordBase === 'ukg');
+
+            const getNumericValue = (str: string) => str.replace(/(st|nd|rd|th)/g, '');
+            const filterNumeric = getNumericValue(filterLower);
+            const recordNumeric = getNumericValue(recordBase);
+
+            const isNumericMatch = !!(filterNumeric && recordNumeric && (filterNumeric === recordNumeric || filterLower.startsWith(recordBase) || recordBase.startsWith(filterLower)));
+
+            matchesClass = isNurseryMatch || isJKGMatch || isSKGMatch || isNumericMatch || recordBase === filterLower || record.className.toLowerCase().includes(filterLower);
+          }
+
           return matchesSearch && matchesClass;
         });
 
@@ -1277,8 +1300,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="w-full text-xs font-bold px-3 py-2.5 bg-slate-50 border border-slate-155 rounded-lg outline-none cursor-pointer focus:bg-white focus:border-blue-500 text-slate-700"
                   >
                     <option value="All">Class: All Filter</option>
-                    <option value="10-A">Class: 10-A</option>
-                    <option value="9-B">Class: 9-B</option>
+                    <option value="Nursery">Nursery</option>
+                    <option value="JKG">JKG</option>
+                    <option value="SKG">SKG</option>
+                    <option value="1st">1st Class</option>
+                    <option value="2nd">2nd Class</option>
+                    <option value="3rd">3rd Class</option>
+                    <option value="4th">4th Class</option>
+                    <option value="5th">5th Class</option>
+                    <option value="6th">6th Class</option>
+                    <option value="7th">7th Class</option>
+                    <option value="8th">8th Class</option>
+                    <option value="9th">9th Class</option>
+                    <option value="10th">10th Class</option>
                   </select>
                 </div>
 
@@ -2282,58 +2316,103 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* 3. TUITION COLLECTION MODAL */}
       <Modal
         isOpen={isFeeModalOpen}
-        onClose={() => setIsFeeModalOpen(false)}
-        title="Tuition Collection Settlement"
+        onClose={() => {
+          setIsFeeModalOpen(false);
+          setFeeModalSearchQuery('');
+        }}
+        title="Record Payment - Choose Student"
         footer={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsFeeModalOpen(false)}>
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => {
+              setIsFeeModalOpen(false);
+              setFeeModalSearchQuery('');
+            }}>
               Cancel
-            </Button>
-            <Button size="sm" type="submit" form="fee-collection-form" isLoading={submitLoading}>
-              Collect Payment
             </Button>
           </div>
         }
       >
-        <form id="fee-collection-form" onSubmit={handleFeeSubmit} className="space-y-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-700">SELECT STUDENT ACCOUNT</label>
-            <select
-              className="w-full px-3 py-2 text-xs border rounded-lg bg-white border-slate-200 outline-none hover:border-slate-300"
-              value={feeForm.studentId}
-              onChange={(e) => setFeeForm({ ...feeForm, studentId: e.target.value })}
-            >
-              <option value="">-- Choose registered student --</option>
-              {students.map(s => (
-                <option key={s.id} value={s.id}>{s.name} ({s.rollNumber})</option>
-              ))}
-            </select>
-            {formErrors.studentId && <p className="text-[10px] font-bold text-red-505">{formErrors.studentId}</p>}
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Search or select a student from the ledger roster to view their personalized payment breakdown, select outstanding term installments, and process payment recordings safely.
+          </p>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search student by name, class, or admission no..."
+              value={feeModalSearchQuery}
+              onChange={(e) => setFeeModalSearchQuery(e.target.value)}
+              className="w-full text-xs font-semibold pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all placeholder:text-slate-400"
+            />
           </div>
 
-          <Input
-            label="COLLECTED AMOUNT ($)"
-            type="number"
-            placeholder="1250"
-            value={feeForm.amountPaid}
-            onChange={(e) => setFeeForm({ ...feeForm, amountPaid: e.target.value })}
-            error={formErrors.amountPaid}
-            required
-          />
+          <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2 border-t border-slate-100 pt-3">
+            {(() => {
+              const filteredForModal = feeRecords.filter(record => {
+                const q = feeModalSearchQuery.trim().toLowerCase();
+                if (!q) return true;
+                return (
+                  record.name?.toLowerCase().includes(q) ||
+                  record.admissionNo?.toLowerCase().includes(q) ||
+                  record.className?.toLowerCase().includes(q)
+                );
+              });
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-700">PAYMENT ROUTING METHOD</label>
-            <select
-              className="w-full px-3 py-2 text-xs border rounded-lg bg-white border-slate-200 outline-none hover:border-slate-300"
-              value={feeForm.paymentMethod}
-              onChange={(e) => setFeeForm({ ...feeForm, paymentMethod: e.target.value })}
-            >
-              <option value="Cash">Cash Vault</option>
-              <option value="Card Gateway">Online Card Gateway</option>
-              <option value="Bank Check">Clearing House Check</option>
-            </select>
+              if (filteredForModal.length === 0) {
+                return (
+                  <div className="text-center py-8">
+                    <Users className="h-8 w-8 text-slate-300 mx-auto stroke-1" />
+                    <p className="text-xs font-bold text-slate-400 mt-2">No matching students found</p>
+                  </div>
+                );
+              }
+
+              return filteredForModal.map(record => {
+                const isPaid = (record.dueAmount ?? 0) <= 0;
+                return (
+                  <button
+                    key={record.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedFeeStudent(record);
+                      setCustomPayAmount((record.dueAmount ?? 0).toString());
+                      setReceiptDetail(null);
+                      setIsFeeModalOpen(false);
+                      setFeeModalSearchQuery('');
+                      setIsCustomPayModalOpen(true);
+                    }}
+                    className="w-full text-left flex items-center justify-between p-3 border border-slate-200 hover:border-blue-300 bg-white hover:bg-blue-50/10 rounded-xl transition-all cursor-pointer group active:scale-99"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-slate-100 group-hover:bg-blue-50 text-slate-600 group-hover:text-blue-600 flex items-center justify-center font-bold text-xs transition-colors">
+                        {record.name ? record.name.charAt(0) : 'S'}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 group-hover:text-blue-700 transition-colors">
+                          {record.name}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          Adm: <span className="font-bold text-slate-600">{record.admissionNo}</span> · Class: <span className="font-bold text-slate-600">{record.className}</span>
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <p className={`text-xs font-black ${isPaid ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {isPaid ? 'Settled' : `₹${(record.dueAmount ?? 0).toLocaleString()}`}
+                      </p>
+                      <p className="text-[9px] text-slate-400 font-bold mt-0.5">
+                        {isPaid ? 'No Outstanding' : 'Bal Due'}
+                      </p>
+                    </div>
+                  </button>
+                );
+              });
+            })()}
           </div>
-        </form>
+        </div>
       </Modal>
 
       {/* 4. GENERAL BULLETIN NOTICES MODAL */}

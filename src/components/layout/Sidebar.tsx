@@ -112,9 +112,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Connected User Profile Footer */}
       <div className={`p-4 border-t border-slate-105 bg-slate-50/60 flex items-center ${isCollapsed ? 'justify-center px-2' : 'gap-3'}`}>
         <img
-          src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'}
+          src={user?.avatar || 'https://api.dicebear.com/7.x/notionists/svg?seed=admin'}
           alt={user?.name || 'User'}
           className="h-9 w-9 rounded-lg border border-slate-200 object-cover"
+          referrerPolicy="no-referrer"
         />
         {!isCollapsed && (
           <div className="flex-1 min-w-0">

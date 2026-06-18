@@ -27,7 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
-  const checkAuth = () => {
+  const checkAuth = async () => {
     try {
       const savedToken = localStorage.getItem('school_erp_token');
       const savedUser = localStorage.getItem('school_erp_user');
@@ -38,6 +38,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(JSON.parse(savedUser));
         setRole(savedRole);
         setIsAuthenticated(true);
+        
+        // Background verify/sync session state with active cookie
+        try {
+          const profileRes = await authApi.getCurrentUser();
+          if (profileRes && profileRes.user) {
+            setUser(profileRes.user);
+            setRole(profileRes.user.role);
+            localStorage.setItem('school_erp_user', JSON.stringify(profileRes.user));
+            localStorage.setItem('school_erp_role', profileRes.user.role);
+          }
+        } catch (syncErr) {
+          console.warn('Background cookie validation sync failed:', syncErr);
+        }
+      } else {
+        // Fallback for cookie-only JWT auth on load
+        try {
+          const profileRes = await authApi.getCurrentUser();
+          if (profileRes && profileRes.user) {
+            const tempToken = 'session-cookie-approved';
+            setToken(tempToken);
+            setUser(profileRes.user);
+            setRole(profileRes.user.role);
+            setIsAuthenticated(true);
+            
+            localStorage.setItem('school_erp_token', tempToken);
+            localStorage.setItem('school_erp_user', JSON.stringify(profileRes.user));
+            localStorage.setItem('school_erp_role', profileRes.user.role);
+          }
+        } catch (cookieErr) {
+          // No active cookie session found, stay on logged out state
+        }
       }
     } catch (e) {
       console.error('Failed to parse saved session:', e);
