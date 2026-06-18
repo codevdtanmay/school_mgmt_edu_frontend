@@ -37,6 +37,18 @@ const mapStudentResponse = (s: any): Student => {
     motherName: s.motherName || '',
     phone: s.phone || '',
     
+    // Financial Ledger fields
+    totalFee: s.totalFee != null ? Number(s.totalFee) : 0,
+    paidAmount: s.paidAmount != null ? Number(s.paidAmount) : 0,
+    dueAmount: s.dueAmount != null ? Number(s.dueAmount) : 0,
+    status: s.status || 'Unpaid',
+    paymentHistory: Array.isArray(s.paymentHistory) ? s.paymentHistory.map((val: any) => ({
+      receiptNo: val.receiptNo || '',
+      date: val.date || '',
+      amount: val.amount != null ? Number(val.amount) : 0,
+      paymentMethod: val.paymentMethod || 'Cash'
+    })) : [],
+    
     // Compatibility fields with existing charts & filters
     rollNumber: s.admissionNo || s.rollNumber || '',
     classCategory: s.class ? getClassCategory(s.class) : 'Primary',
@@ -49,12 +61,17 @@ const mapStudentResponse = (s: any): Student => {
 
 export const studentApi = {
   getStudents: async (): Promise<Student[]> => {
-    const response = await axiosInstance.get('/student');
-    const data = response.data;
-    
-    // Support { success: true, students: [...] } envelope or direct array
-    const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.students) ? data.students : (data && Array.isArray(data.data) ? data.data : []));
-    return rawList.map(mapStudentResponse);
+    try {
+      const response = await axiosInstance.get('/student');
+      const data = response.data;
+      
+      // Support { success: true, students: [...] } envelope or direct array
+      const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.students) ? data.students : (data && Array.isArray(data.data) ? data.data : []));
+      return rawList.map(mapStudentResponse);
+    } catch (e) {
+      console.warn('Backend student search failed or offline. Falling back to empty dataset.', e);
+      return [];
+    }
   },
 
   addStudent: async (studentData: Omit<Student, 'id' | 'rollNumber' | 'admissionDate'>): Promise<Student> => {

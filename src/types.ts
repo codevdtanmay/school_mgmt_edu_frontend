@@ -23,6 +23,13 @@ export interface Student {
   motherName?: string;
   phone?: string;
   
+  // Financial Ledger fields
+  totalFee?: number;
+  paidAmount?: number;
+  dueAmount?: number;
+  status?: 'Paid' | 'Partial' | 'Unpaid' | 'Pending';
+  paymentHistory?: { receiptNo?: string; date: string; amount: number; paymentMethod?: string }[];
+  
   // Existing fields for compatibility with charts and mock datasets
   rollNumber: string;
   classCategory: 'Foundation' | 'Primary' | 'Middle School' | 'Secondary';

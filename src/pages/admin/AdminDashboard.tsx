@@ -105,48 +105,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     status: 'Partial' | 'Paid' | 'Pending';
     admissionNo: string;
     paymentHistory: { date: string; amount: number }[];
-  }[]>([
-    {
-      id: 'fee-1',
-      name: 'Rahul Kumar',
-      className: '10-A',
-      dueAmount: 800,
-      totalFee: 2800,
-      paidAmount: 2000,
-      status: 'Partial',
-      admissionNo: 'SOPF002',
-      paymentHistory: [
-        { date: '15 June 2026', amount: 2000 },
-        { date: '01 May 2026', amount: 2800 },
-        { date: '01 April 2026', amount: 2800 }
-      ]
-    },
-    {
-      id: 'fee-2',
-      name: 'Aman',
-      className: '9-B',
-      dueAmount: 0,
-      totalFee: 2800,
-      paidAmount: 2800,
-      status: 'Paid',
-      admissionNo: 'SOPF003',
-      paymentHistory: [
-        { date: '12 June 2026', amount: 2800 },
-        { date: '05 May 2026', amount: 2800 }
-      ]
-    },
-    {
-      id: 'fee-3',
-      name: 'Riya',
-      className: '10-A',
-      dueAmount: 2800,
-      totalFee: 2800,
-      paidAmount: 0,
-      status: 'Pending',
-      admissionNo: 'SOPF004',
-      paymentHistory: []
-    }
-  ]);
+  }[]>([]);
 
   const [selectedFeeStudent, setSelectedFeeStudent] = useState<{
     id: string;
@@ -263,6 +222,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setStudents(studentsRes);
         setTeachers(teachersRes);
         setFeeStructures(feeStructuresRes);
+
+        // Dynamically compute fee records based on fetched live students list
+        const mappedFeeRecords = (studentsRes || []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          className: s.section ? `${s.class}-${s.section}` : (s.class || 'General'),
+          dueAmount: s.dueAmount != null ? s.dueAmount : 0,
+          totalFee: s.totalFee != null ? s.totalFee : 2800,
+          paidAmount: s.paidAmount != null ? s.paidAmount : 0,
+          status: s.status === 'Unpaid' ? 'Pending' : (s.status === 'Paid' ? 'Paid' : (s.status || 'Pending')),
+          admissionNo: s.admissionNo || '',
+          paymentHistory: Array.isArray(s.paymentHistory) ? s.paymentHistory.map((ph: any) => ({
+            date: ph.date || '',
+            amount: ph.amount != null ? ph.amount : 0
+          })) : []
+        }));
+        setFeeRecords(mappedFeeRecords);
+        if (selectedFeeStudent) {
+          const freshRecord = mappedFeeRecords.find((item: any) => item.id === selectedFeeStudent.id);
+          if (freshRecord) {
+            setSelectedFeeStudent(freshRecord);
+          }
+        }
       } catch (err) {
         console.error('Error synchronizing school logs:', err);
       } finally {
@@ -1210,7 +1192,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         };
 
         // Complete the payment flow
-        const handleSavePaymentSubmit = (e: React.FormEvent) => {
+        const handleSavePaymentSubmit = async (e: React.FormEvent) => {
           e.preventDefault();
           const amountFloat = parseFloat(customPayAmount);
           if (isNaN(amountFloat) || amountFloat <= 0) {
@@ -1218,65 +1200,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             return;
           }
 
-          // Generate custom unique Receipt Number
-          const randomSuffix = Math.floor(100 + Math.random() * 900);
-          const customReceiptNo = `REC-2026-00${randomSuffix}`;
-
-          // Update localized states
-          const updatedRecords = feeRecords.map(item => {
-            if (item.id === activeRecord.id) {
-              const newPaid = item.paidAmount + amountFloat;
-              const newDue = Math.max(0, item.totalFee - newPaid);
-              let newStatus: 'Paid' | 'Partial' | 'Pending' = 'Partial';
-              if (newDue === 0) newStatus = 'Paid';
-              else if (newPaid === 0) newStatus = 'Pending';
-              
-              // Prepend new item to mock history list
-              const currentDay = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-              return {
-                ...item,
-                paidAmount: newPaid,
-                dueAmount: newDue,
-                status: newStatus,
-                paymentHistory: [{ date: currentDay, amount: amountFloat }, ...item.paymentHistory]
-              };
-            }
-            return item;
-          });
-
-          setFeeRecords(updatedRecords);
-          
-          // Select the updated record to keep views fresh
-          const updatedActive = updatedRecords.find(item => item.id === activeRecord.id);
-          if (updatedActive) {
-            setSelectedFeeStudent(updatedActive);
+          if (!activeRecord || !activeRecord.id) {
+            alert('No student selected for settlement.');
+            return;
           }
 
-          // Update system state dashboard summary
-          if (fees) {
-            setFees({
-              ...fees,
-              collected: fees.collected + amountFloat,
-              pending: Math.max(0, fees.pending - amountFloat)
+          setSubmitLoading(true);
+          try {
+            const apiRes = await studentApi.collectFee({
+              studentId: activeRecord.id,
+              amountPaid: amountFloat,
+              paymentMethod: customPayMode
             });
+
+            // Trigger fetch refresh to fetch everything fresh from database
+            triggerDataRefresh();
+
+            // Handle API receipt detail or build robust client fallback
+            const finalReceiptNo = apiRes?.receiptDetail?.receiptNo || apiRes?.receiptNo || `REC-2026-00${Math.floor(100 + Math.random() * 900)}`;
+            const finalStudentName = apiRes?.receiptDetail?.studentName || apiRes?.studentName || activeRecord.name;
+            const finalAmountPaid = apiRes?.receiptDetail?.amount || apiRes?.amount || amountFloat;
+
+            setReceiptDetail({
+              receiptNo: finalReceiptNo,
+              amount: finalAmountPaid,
+              studentName: finalStudentName
+            });
+
+            // Log activity event in ERP list
+            const newSystemEvent: Activity = {
+              id: `ac-${Date.now()}`,
+              activity: `Fee collected from ${activeRecord.name} (₹${amountFloat.toLocaleString()}) via ${customPayMode}`,
+              user: 'Finance Terminal 1',
+              time: 'Just Now',
+              type: 'fee'
+            };
+            setActivities(prev => [newSystemEvent, ...prev]);
+
+          } catch (err: any) {
+            console.error('Fees Payment API Error:', err);
+            alert(err.response?.data?.error || err.message || 'Fee transaction recording to live backend failed');
+          } finally {
+            setSubmitLoading(false);
           }
-
-          // Log dynamic activity event in ERP list
-          const newSystemEvent: Activity = {
-            id: `ac-${Date.now()}`,
-            activity: `Fee collected from ${activeRecord.name} (₹${amountFloat.toLocaleString()}) via ${customPayMode}`,
-            user: 'Finance Terminal 1',
-            time: 'Just Now',
-            type: 'fee'
-          };
-          setActivities(prev => [newSystemEvent, ...prev]);
-
-          // Transition to Payment Successful template state
-          setReceiptDetail({
-            receiptNo: customReceiptNo,
-            amount: amountFloat,
-            studentName: activeRecord.name
-          });
         };
 
         return (

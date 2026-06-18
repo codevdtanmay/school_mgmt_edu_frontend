@@ -25,10 +25,15 @@ const mapTeacherResponse = (t: any): Teacher => {
 
 export const teacherApi = {
   getTeachers: async (): Promise<Teacher[]> => {
-    const response = await axiosInstance.get('/teachers');
-    const data = response.data;
-    const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.teachers) ? data.teachers : (data && Array.isArray(data.data) ? data.data : []));
-    return rawList.map(mapTeacherResponse);
+    try {
+      const response = await axiosInstance.get('/teachers');
+      const data = response.data;
+      const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.teachers) ? data.teachers : (data && Array.isArray(data.data) ? data.data : []));
+      return rawList.map(mapTeacherResponse);
+    } catch (e) {
+      console.warn('Backend teacher search failed or offline. Falling back to empty dataset.', e);
+      return [];
+    }
   },
 
   addTeacher: async (teacherData: Omit<Teacher, 'id' | 'joiningDate' | 'status'>): Promise<Teacher> => {
