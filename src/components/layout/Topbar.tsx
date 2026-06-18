@@ -48,7 +48,7 @@ export const Topbar: React.FC<TopbarProps> = ({
 
         {/* Global Filter Bar */}
         <div className="relative w-full max-w-sm hidden sm:block">
-          <Search size={16} className="absolute left-3 text-slate-400 select-none pointer-events-none" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 select-none pointer-events-none" />
           <input
             type="text"
             value={searchQuery}

@@ -22,8 +22,12 @@ export const FeeCollectionWidget: React.FC<FeeCollectionWidgetProps> = ({ fees, 
     );
   }
 
-  const total = fees.collected + fees.pending + fees.overdue;
-  const collectionRate = Math.round((fees.collected / fees.monthlyTarget) * 100);
+  const collected = fees.collected || 0;
+  const pending = fees.pending || 0;
+  const overdue = fees.overdue || 0;
+  const monthlyTarget = fees.monthlyTarget || 1; // Avoid division by zero
+  const total = collected + pending + overdue;
+  const collectionRate = Math.round((collected / monthlyTarget) * 100);
 
   return (
     <Card className="h-full flex flex-col justify-between">
@@ -50,9 +54,9 @@ export const FeeCollectionWidget: React.FC<FeeCollectionWidgetProps> = ({ fees, 
           </span>
           <div className="flex items-baseline gap-2">
             <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
-              ₹{fees.collected.toLocaleString()}
+              ₹{collected.toLocaleString()}
             </h3>
-            <span className="text-xs font-semibold text-emerald-650 flex items-center">
+            <span className="text-xs font-semibold text-emerald-655 flex items-center">
               <TrendingUp size={12} className="mr-0.5" />
               {collectionRate}% of monthly target
             </span>
@@ -72,7 +76,7 @@ export const FeeCollectionWidget: React.FC<FeeCollectionWidgetProps> = ({ fees, 
             />
           </div>
           <span className="text-[10px] text-slate-400 font-semibold block">
-            Current Target: ₹{fees.monthlyTarget.toLocaleString()} (June Term)
+            Current Target: ₹{monthlyTarget.toLocaleString()} (June Term)
           </span>
         </div>
       </div>
@@ -85,7 +89,7 @@ export const FeeCollectionWidget: React.FC<FeeCollectionWidgetProps> = ({ fees, 
             <span className="text-[10px] font-bold uppercase tracking-wider">Pending</span>
           </div>
           <p className="text-sm font-bold text-slate-800">
-            ₹{fees.pending.toLocaleString()}
+            ₹{pending.toLocaleString()}
           </p>
         </div>
 
@@ -95,7 +99,7 @@ export const FeeCollectionWidget: React.FC<FeeCollectionWidgetProps> = ({ fees, 
             <span className="text-[10px] font-bold uppercase tracking-wider">Overdue</span>
           </div>
           <p className="text-sm font-bold text-slate-800">
-            ₹{fees.overdue.toLocaleString()}
+            ₹{overdue.toLocaleString()}
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Student, Teacher, Notice, Activity, DashboardStats, FeeSummary, FeeStructure } from '../types';
 
-const enableMock = true; // Easily flip to false to connect to a real live backend API!
+const enableMock = false; // Turned off so you can manually connect your live backend API!
 
 // --- SEED DATA & IN-MEMORY LOCALSTORAGE DATABASE ---
 const STORAGE_PREFIX = 'pansy_erp_v3_';
@@ -652,6 +652,7 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
   adapter: enableMock ? (config) => handleMockRequest(config) : undefined,
 });
 

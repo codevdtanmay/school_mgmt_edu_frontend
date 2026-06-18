@@ -63,13 +63,13 @@ export const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities, 
               </div>
             </div>
           ))
-        ) : activities.length === 0 ? (
+        ) : (Array.isArray(activities) ? activities : []).length === 0 ? (
           <div className="text-center py-6 text-slate-400 text-xs">
             No system actions logged.
           </div>
         ) : (
           <div className="relative border-l border-slate-100 pl-4 ml-4 py-2 space-y-6">
-            {activities.map((act) => {
+            {(Array.isArray(activities) ? activities : []).map((act) => {
               const meta = getActivityIcon(act.type);
               return (
                 <div key={act.id} className="relative group">

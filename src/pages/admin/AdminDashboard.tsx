@@ -649,13 +649,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleExportFeesPDF = () => {
     const headers = ['Student Name', 'Admission No', 'Class', 'Total Fee', 'Paid Fees', 'Left/Due Fees', 'Status'];
     const rows = feeRecords.map(item => [
-      item.name,
-      item.admissionNo,
-      item.className,
-      `₹${item.totalFee.toLocaleString()}`,
-      `₹${item.paidAmount.toLocaleString()}`,
-      `₹${item.dueAmount.toLocaleString()}`,
-      item.status
+      item.name || '',
+      item.admissionNo || '',
+      item.className || '',
+      `₹${(item.totalFee ?? 0).toLocaleString()}`,
+      `₹${(item.paidAmount ?? 0).toLocaleString()}`,
+      `₹${(item.dueAmount ?? 0).toLocaleString()}`,
+      item.status || ''
     ]);
     exportToPrintablePDF('Financial center ledger summary', headers, rows, 'fees_ledger_report');
   };
@@ -682,9 +682,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // --- FILTERED DIRECTORIES ---
-  const filteredStudents = students.filter(s => {
-    const matchesSearch = s.name.toLowerCase().includes(query) ||
-      s.email.toLowerCase().includes(query) ||
+  const filteredStudents = (Array.isArray(students) ? students : []).filter(s => {
+    const matchesSearch = (s.name || '').toLowerCase().includes(query) ||
+      (s.email || '').toLowerCase().includes(query) ||
       (s.admissionNo || s.rollNumber || '').toLowerCase().includes(query) ||
       (s.classCategory || '').toLowerCase().includes(query) ||
       (s.class || '').toLowerCase().includes(query);
@@ -693,20 +693,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return matchesSearch && matchesClass;
   });
 
-  const filteredTeachers = teachers.filter(t => 
-    t.name.toLowerCase().includes(query) ||
-    t.email.toLowerCase().includes(query) ||
-    t.subject.toLowerCase().includes(query) ||
-    t.department.toLowerCase().includes(query)
+  const filteredTeachers = (Array.isArray(teachers) ? teachers : []).filter(t => 
+    (t.name || '').toLowerCase().includes(query) ||
+    (t.email || '').toLowerCase().includes(query) ||
+    (t.subject || '').toLowerCase().includes(query) ||
+    (t.department || '').toLowerCase().includes(query)
   );
 
-  const filteredFeeStructures = feeStructures.filter(fs => {
+  const filteredFeeStructures = (Array.isArray(feeStructures) ? feeStructures : []).filter(fs => {
     const matchesSearch = !feeStructureSearchQuery || (fs.class || '').toLowerCase().includes(feeStructureSearchQuery.toLowerCase());
     const matchesYear = feeStructureYearFilter === 'All' || fs.academicSession === feeStructureYearFilter;
     return matchesSearch && matchesYear;
   });
 
-  const academicSessionOptions = Array.from(new Set(feeStructures.map(fs => fs.academicSession))).filter(Boolean);
+  const academicSessionOptions = Array.from(new Set((Array.isArray(feeStructures) ? feeStructures : []).map(fs => fs.academicSession))).filter(Boolean);
 
   // Render Skeleton while initial loading is active
   if (loading && !stats) {
@@ -1119,6 +1119,77 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* --- FINANCIAL TABS VIEW --- */}
       {currentTab === 'fees' && (() => {
         const activeRecord = selectedFeeStudent || feeRecords[0];
+
+        // Match student's class to fee structure or build dynamic fallback based on totalFee
+        const getMatchingStructureForClass = (studentClass: string, totalFee: number) => {
+          const cleanedClass = (studentClass || '').trim().toLowerCase();
+          let match = (feeStructures || []).find(fs => (fs.class || '').toLowerCase() === cleanedClass);
+          if (match) return match;
+          const numPart = cleanedClass.match(/\d+/);
+          if (numPart) {
+            match = (feeStructures || []).find(fs => (fs.class || '').toLowerCase().includes(numPart[0]));
+            if (match) return match;
+          }
+          match = (feeStructures || []).find(fs => 
+            (fs.class || '').toLowerCase().includes(cleanedClass) || 
+            cleanedClass.includes((fs.class || '').toLowerCase())
+          );
+          if (match) return match;
+
+          // Default fallback split into 4 quarters
+          const parts = Math.floor(totalFee / 4);
+          return {
+            id: `fallback-fs-${cleanedClass}`,
+            class: studentClass || 'General',
+            admissionFee: 0,
+            tuitionFee: totalFee,
+            computerFee: 0,
+            examFee: 0,
+            culturalActivityFee: 0,
+            totalFee: totalFee,
+            academicSession: '2026-27',
+            juneAmount: parts,
+            septemberAmount: parts,
+            decemberAmount: parts,
+            marchAmount: totalFee - parts * 3
+          };
+        };
+
+        // Determine installment statuses based on recorded cumulative paidAmount
+        const getInstallmentStatuses = (paidAmount: number, fs: any) => {
+          const J = fs.juneAmount || 0;
+          const S = fs.septemberAmount || 0;
+          const D = fs.decemberAmount || 0;
+          const M = fs.marchAmount || 0;
+
+          let tempPaid = paidAmount;
+
+          const juneStatus = tempPaid >= J ? 'Paid' : tempPaid > 0 ? 'Partial' : 'Pending';
+          const junePaid = Math.min(tempPaid, J);
+          tempPaid = Math.max(0, tempPaid - J);
+
+          const septemberStatus = tempPaid >= S ? 'Paid' : tempPaid > 0 ? 'Partial' : 'Pending';
+          const septemberPaid = Math.min(tempPaid, S);
+          tempPaid = Math.max(0, tempPaid - S);
+
+          const decemberStatus = tempPaid >= D ? 'Paid' : tempPaid > 0 ? 'Partial' : 'Pending';
+          const decemberPaid = Math.min(tempPaid, D);
+          tempPaid = Math.max(0, tempPaid - D);
+
+          const marchStatus = tempPaid >= M ? 'Paid' : tempPaid > 0 ? 'Partial' : 'Pending';
+          const marchPaid = Math.min(tempPaid, M);
+
+          return {
+            juneStatus,
+            junePaid,
+            septemberStatus,
+            septemberPaid,
+            decemberStatus,
+            decemberPaid,
+            marchStatus,
+            marchPaid
+          };
+        };
         
         // Filter student fees list
         const filteredFeeRecords = feeRecords.filter(record => {
@@ -1313,7 +1384,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 </div>
                               </td>
                               <td className="p-3.5 text-slate-500 font-semibold">{item.className}</td>
-                              <td className="p-3.5 text-slate-900">₹{item.dueAmount.toLocaleString()}</td>
+                              <td className="p-3.5 text-slate-900">₹{(item.dueAmount ?? 0).toLocaleString()}</td>
                               <td className="p-3.5">
                                 <Badge 
                                   variant={
@@ -1360,15 +1431,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="space-y-2 bg-slate-50/40 p-4 border border-slate-100/54 rounded-xl text-xs">
                       <div className="flex justify-between border-b border-slate-100 pb-2">
                         <span className="text-slate-500 font-bold">Total Fee</span>
-                        <span className="font-black text-slate-900">₹{activeRecord.totalFee.toLocaleString()}</span>
+                        <span className="font-black text-slate-900">₹{(activeRecord.totalFee ?? 0).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between border-b border-slate-100 py-2">
                         <span className="text-slate-500 font-bold">Paid Amount</span>
-                        <span className="font-black text-emerald-600">₹{activeRecord.paidAmount.toLocaleString()}</span>
+                        <span className="font-black text-emerald-600">₹{(activeRecord.paidAmount ?? 0).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between border-b border-dash-y border-slate-100 py-2">
                         <span className="text-slate-500 font-bold">Due Amount</span>
-                        <span className="font-black text-red-500 text-sm">₹{activeRecord.dueAmount.toLocaleString()}</span>
+                        <span className="font-black text-red-500 text-sm">₹{(activeRecord.dueAmount ?? 0).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between pt-1">
                         <span className="text-slate-500 font-bold">Status</span>
@@ -1387,6 +1458,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
+                  {/* Section 1.5: Student Installment Breakdown */}
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Installment Plan breakdown</h4>
+                    <div className="grid grid-cols-2 gap-2 bg-slate-50/20 p-2 border border-slate-100/50 rounded-xl">
+                      {(() => {
+                        const matchingFS = getMatchingStructureForClass(activeRecord.className || activeRecord.class, activeRecord.totalFee);
+                        const inst = getInstallmentStatuses(activeRecord.paidAmount, matchingFS);
+                        return (
+                          <>
+                            <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg flex flex-col justify-between">
+                              <span className="text-[10px] font-black text-slate-400 uppercase">June</span>
+                              <div className="flex items-center justify-between gap-1.5 mt-1.5">
+                                <span className="font-extrabold text-slate-800 text-xs">₹{(matchingFS?.juneAmount || 0).toLocaleString()}</span>
+                                <Badge variant={inst.juneStatus === 'Paid' ? 'success' : inst.juneStatus === 'Partial' ? 'warning' : 'danger'} size="xs">
+                                  {inst.juneStatus}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg flex flex-col justify-between">
+                              <span className="text-[10px] font-black text-slate-400 uppercase">Sept</span>
+                              <div className="flex items-center justify-between gap-1.5 mt-1.5">
+                                <span className="font-extrabold text-slate-800 text-xs">₹{(matchingFS?.septemberAmount || 0).toLocaleString()}</span>
+                                <Badge variant={inst.septemberStatus === 'Paid' ? 'success' : inst.septemberStatus === 'Partial' ? 'warning' : 'danger'} size="xs">
+                                  {inst.septemberStatus}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg flex flex-col justify-between">
+                              <span className="text-[10px] font-black text-slate-400 uppercase">Dec</span>
+                              <div className="flex items-center justify-between gap-1.5 mt-1.5">
+                                <span className="font-extrabold text-slate-800 text-xs">₹{(matchingFS?.decemberAmount || 0).toLocaleString()}</span>
+                                <Badge variant={inst.decemberStatus === 'Paid' ? 'success' : inst.decemberStatus === 'Partial' ? 'warning' : 'danger'} size="xs">
+                                  {inst.decemberStatus}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg flex flex-col justify-between">
+                              <span className="text-[10px] font-black text-slate-400 uppercase">March</span>
+                              <div className="flex items-center justify-between gap-1.5 mt-1.5">
+                                <span className="font-extrabold text-slate-800 text-xs">₹{(matchingFS?.marchAmount || 0).toLocaleString()}</span>
+                                <Badge variant={inst.marchStatus === 'Paid' ? 'success' : inst.marchStatus === 'Partial' ? 'warning' : 'danger'} size="xs">
+                                  {inst.marchStatus}
+                                </Badge>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
                   {/* Section 2: Settlement Payment History timeline */}
                   <div className="space-y-3">
                     <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Payment History</h4>
@@ -1402,7 +1524,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             className="flex items-center justify-between text-xs p-2.5 bg-slate-50 border border-slate-100/70 rounded-lg hover:border-slate-200 transition-colors"
                           >
                             <span className="text-slate-500 font-bold">{item.date}</span>
-                            <span className="font-black text-slate-800">₹{item.amount.toLocaleString()}</span>
+                            <span className="font-black text-slate-800">₹{(item.amount ?? 0).toLocaleString()}</span>
                           </div>
                         ))
                       )}
@@ -1445,8 +1567,79 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <div>
                       <p className="text-[10px] uppercase font-bold text-slate-400">Current Due</p>
-                      <p className="text-sm font-black text-red-500 mt-0.5">₹{activeRecord.dueAmount.toLocaleString()}</p>
+                      <p className="text-sm font-black text-red-500 mt-0.5">₹{(activeRecord?.dueAmount ?? 0).toLocaleString()}</p>
                     </div>
+
+                    {/* Quick Installment Select Buttons */}
+                    {(() => {
+                      const matchingFS = getMatchingStructureForClass(activeRecord.className || activeRecord.class, activeRecord.totalFee);
+                      const inst = getInstallmentStatuses(activeRecord.paidAmount, matchingFS);
+                      
+                      const juneRemaining = Math.max(0, (matchingFS?.juneAmount || 0) - inst.junePaid);
+                      const septemberRemaining = Math.max(0, (matchingFS?.septemberAmount || 0) - inst.septemberPaid);
+                      const decemberRemaining = Math.max(0, (matchingFS?.decemberAmount || 0) - inst.decemberPaid);
+                      const marchRemaining = Math.max(0, (matchingFS?.marchAmount || 0) - inst.marchPaid);
+
+                      const hasDueInstallments = juneRemaining > 0 || septemberRemaining > 0 || decemberRemaining > 0 || marchRemaining > 0;
+
+                      if (!hasDueInstallments) return null;
+
+                      return (
+                        <div className="space-y-1.5 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                          <label className="text-[9px] font-black tracking-wider text-slate-400 uppercase">Installment Quick Select</label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {juneRemaining > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setCustomPayAmount(juneRemaining.toString())}
+                                className="text-left p-2 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50/20 rounded-lg flex flex-col justify-between transition-all active:scale-97 cursor-pointer"
+                              >
+                                <span className="text-[9px] font-bold text-slate-400 uppercase">June Term</span>
+                                <span className="text-xs font-black text-blue-600 mt-0.5">₹{juneRemaining.toLocaleString()}</span>
+                              </button>
+                            )}
+                            {septemberRemaining > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setCustomPayAmount(septemberRemaining.toString())}
+                                className="text-left p-2 bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/20 rounded-lg flex flex-col justify-between transition-all active:scale-97 cursor-pointer"
+                              >
+                                <span className="text-[9px] font-bold text-slate-400 uppercase">Sept Term</span>
+                                <span className="text-xs font-black text-indigo-600 mt-0.5">₹{septemberRemaining.toLocaleString()}</span>
+                              </button>
+                            )}
+                            {decemberRemaining > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setCustomPayAmount(decemberRemaining.toString())}
+                                className="text-left p-2 bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50/20 rounded-lg flex flex-col justify-between transition-all active:scale-97 cursor-pointer"
+                              >
+                                <span className="text-[9px] font-bold text-slate-400 uppercase">Dec Term</span>
+                                <span className="text-xs font-black text-purple-600 mt-0.5">₹{decemberRemaining.toLocaleString()}</span>
+                              </button>
+                            )}
+                            {marchRemaining > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setCustomPayAmount(marchRemaining.toString())}
+                                className="text-left p-2 bg-white border border-slate-200 hover:border-pink-300 hover:bg-pink-50/20 rounded-lg flex flex-col justify-between transition-all active:scale-97 cursor-pointer"
+                              >
+                                <span className="text-[9px] font-bold text-slate-400 uppercase">March Term</span>
+                                <span className="text-xs font-black text-pink-600 mt-0.5">₹{marchRemaining.toLocaleString()}</span>
+                              </button>
+                            )}
+                          </div>
+                          
+                          <button
+                            type="button"
+                            onClick={() => setCustomPayAmount(activeRecord.dueAmount.toString())}
+                            className="w-full text-center mt-1.5 p-1.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-lg text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                          >
+                            Select Full Outstanding (₹{activeRecord.dueAmount.toLocaleString()})
+                          </button>
+                        </div>
+                      );
+                    })()}
 
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase">Amount Paid</label>
@@ -1527,7 +1720,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                       <div className="flex justify-between pt-1">
                         <span className="text-slate-400 font-semibold">Amount Paid:</span>
-                        <span className="font-black text-emerald-600 text-sm">₹{receiptDetail.amount.toLocaleString()}</span>
+                        <span className="font-black text-emerald-600 text-sm">₹{(receiptDetail?.amount ?? 0).toLocaleString()}</span>
                       </div>
 
                     </div>

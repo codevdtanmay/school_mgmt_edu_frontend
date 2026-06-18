@@ -52,12 +52,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const data = await authApi.login({ email, password });
       
-      if (data.token && data.user) {
-        localStorage.setItem('school_erp_token', data.token);
+      if (data && data.user) {
+        const tokenVal = data.token || 'session-bearer-approved';
+        localStorage.setItem('school_erp_token', tokenVal);
         localStorage.setItem('school_erp_user', JSON.stringify(data.user));
         localStorage.setItem('school_erp_role', data.user.role);
         
-        setToken(data.token);
+        setToken(tokenVal);
         setUser(data.user);
         setRole(data.user.role);
         setIsAuthenticated(true);
@@ -75,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    authApi.logout().catch(err => console.warn('Backend logout failed:', err));
     localStorage.removeItem('school_erp_token');
     localStorage.removeItem('school_erp_user');
     localStorage.removeItem('school_erp_role');
