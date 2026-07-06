@@ -9,16 +9,7 @@ const axiosInstance = axios.create({
   withCredentials: true,
 });
 
-// Automatically append Bearer JSON Web Tokens (JWT) for secure endpoints
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('school_erp_token');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Automatically append the JWT (raw token) for secure endpoints
+
 
 export default axiosInstance;
