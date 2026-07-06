@@ -37,6 +37,23 @@ export interface Student {
   parentName: string;
   contact: string;
   admissionDate: string;
+  
+  // New Demographics and Govt ID fields
+  dateOfBirth?: string;
+  joiningDate?: string;
+  category?: 'General' | 'OBC' | 'SC' | 'ST';
+  aadharNo?: string;
+  samagraId?: string;
+  apaarId?: string;
+  panNo?: string;
+  address?: {
+    village: string;
+    postOffice: string;
+    tehsil: string;
+    district: string;
+    state: string;
+    pincode: string;
+  };
 }
 
 export interface Teacher {
@@ -105,3 +122,18 @@ export interface FeeStructure {
   decemberStatus?: 'Paid' | 'Pending';
   marchStatus?: 'Paid' | 'Pending';
 }
+
+export interface Transport {
+  id: string;
+  studentId: string;
+  name: string;
+  email: string;
+  admissionNo: string;
+  className: string;
+  routeName: string;
+  pickupPoint: string;
+  monthlyCharge: number;
+  joiningDate: string;
+  status: "Active" | "Inactive";
+}
+

@@ -55,22 +55,87 @@ const mapStudentResponse = (s: any): Student => {
     gender: s.gender || 'Male',
     parentName: s.fatherName || s.parentName || '',
     contact: s.phone || s.contact || '',
-    admissionDate: s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : (s.admissionDate || '')
+    admissionDate: s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : (s.admissionDate || ''),
+    
+    // New Demographics and Govt ID fields
+    dateOfBirth: s.dateOfBirth || '',
+    joiningDate: s.joiningDate || '',
+    category: s.category || 'General',
+    aadharNo: s.aadharNo || '',
+    samagraId: s.samagraId || '',
+    apaarId: s.apaarId || '',
+    panNo: s.panNo || '',
+    address: s.address ? {
+      village: s.address.village || '',
+      postOffice: s.address.postOffice || '',
+      tehsil: s.address.tehsil || '',
+      district: s.address.district || '',
+      state: s.address.state || '',
+      pincode: s.address.pincode || ''
+    } : {
+      village: '',
+      postOffice: '',
+      tehsil: '',
+      district: '',
+      state: '',
+      pincode: ''
+    }
   };
 };
 
 export const studentApi = {
-  getStudents: async (): Promise<Student[]> => {
+  getStudents: async (params?: {
+    page?: number;
+    limit?: number;
+    category?: string;
+    village?: string;
+    class?: string;
+    sortBy?: string;
+    order?: string;
+    search?: string;
+  }): Promise<{ students: Student[]; pagination: { page: number; totalPages: number; totalStudents: number } }> => {
     try {
-      const response = await axiosInstance.get('/student');
+      const queryParams = new URLSearchParams();
+      if (params) {
+        if (params.page !== undefined) queryParams.append('page', params.page.toString());
+        if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+        if (params.category && params.category !== 'All') queryParams.append('category', params.category);
+        if (params.village) queryParams.append('village', params.village);
+        if (params.class && params.class !== 'All') queryParams.append('class', params.class);
+        if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+        if (params.order) queryParams.append('order', params.order);
+        if (params.search) queryParams.append('search', params.search);
+      }
+      
+      const response = await axiosInstance.get(`/student?${queryParams.toString()}`);
       const data = response.data;
       
-      // Support { success: true, students: [...] } envelope or direct array
+      if (data && data.students && Array.isArray(data.students)) {
+        return {
+          students: data.students.map(mapStudentResponse),
+          pagination: data.pagination || {
+            page: params?.page || 1,
+            totalPages: 1,
+            totalStudents: data.students.length
+          }
+        };
+      }
+      
       const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.students) ? data.students : (data && Array.isArray(data.data) ? data.data : []));
-      return rawList.map(mapStudentResponse);
+      return {
+        students: rawList.map(mapStudentResponse),
+        pagination: data?.pagination || {
+          page: 1,
+          totalPages: 1,
+          totalStudents: rawList.length
+        }
+      };
     } catch (e) {
       console.warn('Backend student search failed or offline. Falling back to empty dataset.', e);
-      return [];
+      return {
+        students: [],
+        pagination: { page: 1, totalPages: 1, totalStudents: 0 }
+      };
     }
   },
 

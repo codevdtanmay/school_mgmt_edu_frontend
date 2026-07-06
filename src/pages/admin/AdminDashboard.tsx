@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Users, 
   GraduationCap, 
@@ -25,7 +25,8 @@ import {
   Edit2,
   Trash2,
   ShieldAlert,
-  Eye
+  Eye,
+  Printer
 } from 'lucide-react';
 
 // Export Utilities
@@ -46,12 +47,18 @@ import RecentNotices from '../../components/dashboard/RecentNotices';
 import RecentActivities from '../../components/dashboard/RecentActivities';
 import FeeCollectionWidget from '../../components/dashboard/FeeCollectionWidget';
 import StudentDistribution from '../../components/dashboard/StudentDistribution';
+import StudentsByCategory from '../../components/dashboard/StudentsByCategory';
+
+// Transport Operations
+import { TransportPanel } from './TransportPanel';
+import { TransferCertificates } from './TransferCertificates';
 
 // Services/API
 import { studentApi } from '../../api/studentApi';
 import { teacherApi } from '../../api/teacherApi';
 import { noticeApi, dashboardApi } from '../../api/noticeApi';
 import { feeStructureApi } from '../../api/feeStructureApi';
+import { feeApi } from '../../api/feeApi';
 import { DashboardStats, Notice, Activity, FeeSummary, Student, Teacher, FeeStructure } from '../../types';
 
 interface AdminDashboardProps {
@@ -122,8 +129,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [feeSearchQuery, setFeeSearchQuery] = useState('');
   const [feeClassFilter, setFeeClassFilter] = useState('All');
   const [studentClassFilter, setStudentClassFilter] = useState('All');
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
+  const [selectedViewStudent, setSelectedViewStudent] = useState<Student | null>(null);
+  const [isViewStudentModalOpen, setIsViewStudentModalOpen] = useState(false);
   const [feeStructureSearchQuery, setFeeStructureSearchQuery] = useState('');
   const [feeStructureYearFilter, setFeeStructureYearFilter] = useState('All');
+  
+  // Backend Filter, Sorting & Pagination States
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [villageFilter, setVillageFilter] = useState("");
+  const [sortBy, setSortBy] = useState("admissionNo");
+  const [order, setOrder] = useState("asc");
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [pagination, setPagination] = useState<{
+    page: number;
+    totalPages: number;
+    totalStudents: number;
+  } | null>(null);
   
   // Custom interactive payment modal states
   const [isCustomPayModalOpen, setIsCustomPayModalOpen] = useState(false);
@@ -139,6 +162,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // EDIT STATE HOLDERS
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
+  const [usesTransportPresetStudentId, setUsesTransportPresetStudentId] = useState<string | null>(null);
+
+  // --- FEE HISTORY & REPORTING SYSTEM STATES ---
+  const [feeHistory, setFeeHistory] = useState<any[]>([]);
+  const [totalCollection, setTotalCollection] = useState<number>(0);
+  const [totalPayments, setTotalPayments] = useState<number>(0);
+  const [historyMonth, setHistoryMonth] = useState<string>('All');
+  const [historyYear, setHistoryYear] = useState<string>('2026');
+  const [historyPaymentMethod, setHistoryPaymentMethod] = useState<string>('All');
+  const [historyStudentId, setHistoryStudentId] = useState<string>('');
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
+  const [isHistoryDetailModalOpen, setIsHistoryDetailModalOpen] = useState(false);
+  const [studentSearchKeyword, setStudentSearchKeyword] = useState('');
 
   // SECURE DELETE MODAL STATES
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -171,7 +207,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fatherName: '',
     motherName: '',
     phone: '',
-    gender: 'Male'
+    gender: 'Male',
+    dateOfBirth: '',
+    joiningDate: '',
+    category: 'General' as 'General' | 'OBC' | 'SC' | 'ST',
+    aadharNo: '',
+    samagraId: '',
+    apaarId: '',
+    panNo: '',
+    usesTransport: 'No' as 'Yes' | 'No',
+    address: {
+      village: '',
+      postOffice: '',
+      tehsil: '',
+      district: '',
+      state: '',
+      pincode: ''
+    }
   });
   
   const [teacherForm, setTeacherForm] = useState({
@@ -199,33 +251,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitLoading, setSubmitLoading] = useState(false);
 
-  // --- FETCH REFRESH ROUTINE ---
+  // --- FETCH REFRESH ROUTINE (GENERAL DASHBOARD STATS) ---
   useEffect(() => {
     const loadDashboardData = async () => {
       setLoading(true);
       try {
-        const [statsRes, noticeRes, activityRes, feeRes, distRes, studentsRes, teachersRes, feeStructuresRes] = await Promise.all([
+        const [statsRes, noticeRes, activityRes, feeRes, distRes, studentsFullRes, teachersRes, feeStructuresRes] = await Promise.all([
           dashboardApi.getStats(),
           noticeApi.getRecentNotices(),
           dashboardApi.getActivities(),
           studentApi.getFeesOverview(),
           studentApi.getStudentDistribution(),
-          studentApi.getStudents(),
+          studentApi.getStudents({ limit: 1000 }), // Retrieve up to 1000 students for complete general school statistics and ledgers
           teacherApi.getTeachers(),
           feeStructureApi.getFeeStructures()
         ]);
+
+        const studentsFullList = studentsFullRes && 'students' in studentsFullRes ? studentsFullRes.students : (Array.isArray(studentsFullRes) ? studentsFullRes : []);
 
         setStats(statsRes);
         setNotices(noticeRes);
         setActivities(activityRes);
         setFees(feeRes);
         setDistribution(distRes);
-        setStudents(studentsRes);
+        setAllStudents(studentsFullList);
         setTeachers(teachersRes);
         setFeeStructures(feeStructuresRes);
 
         // Dynamically compute fee records based on fetched live students list
-        const mappedFeeRecords = (studentsRes || []).map((s: any) => ({
+        const mappedFeeRecords = (studentsFullList || []).map((s: any) => ({
           id: s.id,
           name: s.name,
           className: s.section ? `${s.class}-${s.section}` : (s.class || 'General'),
@@ -234,6 +288,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           paidAmount: s.paidAmount != null ? s.paidAmount : 0,
           status: s.status === 'Unpaid' ? 'Pending' : (s.status === 'Paid' ? 'Paid' : (s.status || 'Pending')),
           admissionNo: s.admissionNo || '',
+          category: s.category || 'General',
+          village: s.address?.village || '',
           paymentHistory: Array.isArray(s.paymentHistory) ? s.paymentHistory.map((ph: any) => ({
             date: ph.date || '',
             amount: ph.amount != null ? ph.amount : 0
@@ -255,6 +311,76 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     loadDashboardData();
   }, [refreshTrigger]);
+
+  // --- FETCH FEE HISTORY & REPORTING ---
+  useEffect(() => {
+    const fetchFeeHistory = async () => {
+      try {
+        const params: any = {};
+        if (historyMonth !== 'All') {
+          params.month = historyMonth;
+        }
+        if (historyYear !== 'All') {
+          params.year = historyYear;
+        }
+        if (historyPaymentMethod !== 'All') {
+          params.paymentMethod = historyPaymentMethod;
+        }
+        if (historyStudentId) {
+          params.studentId = historyStudentId;
+        }
+
+        const data = await feeApi.getFeeHistory(params);
+        setFeeHistory(data.history || []);
+        setTotalCollection(data.totalCollection || 0);
+        setTotalPayments(data.totalPayments || 0);
+      } catch (err) {
+        console.error('Failed to load fee history:', err);
+      }
+    };
+
+    fetchFeeHistory();
+  }, [historyMonth, historyYear, historyPaymentMethod, historyStudentId, refreshTrigger]);
+
+  // --- PAGINATED STUDENT DIRECTORY LOADER ---
+  const loadStudents = useCallback(async () => {
+    try {
+      const res = await studentApi.getStudents({
+        page,
+        limit,
+        category: categoryFilter,
+        village: villageFilter,
+        class: studentClassFilter,
+        sortBy,
+        order,
+        search: searchQuery
+      });
+
+      if (res && 'students' in res) {
+        setStudents(res.students);
+        setPagination(res.pagination || null);
+      } else {
+        const rawList = Array.isArray(res) ? res : [];
+        setStudents(rawList);
+        setPagination({
+          page: 1,
+          totalPages: 1,
+          totalStudents: rawList.length
+        });
+      }
+    } catch (err) {
+      console.error('Error loading paginated students:', err);
+    }
+  }, [page, limit, categoryFilter, villageFilter, studentClassFilter, sortBy, order, searchQuery]);
+
+  useEffect(() => {
+    loadStudents();
+  }, [loadStudents, refreshTrigger]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [categoryFilter, villageFilter, studentClassFilter, searchQuery]);
 
   const triggerDataRefresh = () => {
     setRefreshTrigger(prev => prev + 1);
@@ -281,13 +407,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       email: stu.email,
       password: 'password123',
       admissionNo: stu.admissionNo || stu.rollNumber || '',
-      class: stu.class || 'Grade 10',
+      class: stu.class || '10th',
       section: stu.section || 'A',
       rollNo: String(stu.rollNo || ''),
       fatherName: stu.fatherName || stu.parentName || '',
       motherName: stu.motherName || '',
       phone: stu.phone || stu.contact || '',
-      gender: stu.gender || 'Male'
+      gender: stu.gender || 'Male',
+      dateOfBirth: stu.dateOfBirth || '',
+      joiningDate: stu.joiningDate || '',
+      category: stu.category || 'General',
+      aadharNo: stu.aadharNo || '',
+      samagraId: stu.samagraId || '',
+      apaarId: stu.apaarId || '',
+      panNo: stu.panNo || '',
+      usesTransport: 'No',
+      address: {
+        village: stu.address?.village || '',
+        postOffice: stu.address?.postOffice || '',
+        tehsil: stu.address?.tehsil || '',
+        district: stu.address?.district || '',
+        state: stu.address?.state || '',
+        pincode: stu.address?.pincode || ''
+      }
     });
     setIsStudentModalOpen(true);
   };
@@ -356,20 +498,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     e.preventDefault();
     setFormErrors({});
 
+    const errors: Record<string, string> = {};
     if (!studentForm.name) {
-      setFormErrors({ name: 'Student name is required' });
+      errors.name = 'Student name is required';
+    }
+
+    // Aadhaar → 12 digits
+    if (studentForm.aadharNo && !/^\d{12}$/.test(studentForm.aadharNo)) {
+      errors.aadharNo = 'Aadhaar No must be exactly 12 digits';
+    }
+    // Phone → 10 digits
+    const cleanPhone = studentForm.phone.replace(/[\s\-\+\(\)]/g, '');
+    if (studentForm.phone && !/^\d{10}$/.test(cleanPhone)) {
+      errors.phone = 'Phone must be exactly 10 digits';
+    }
+    // PAN → 10 characters (typically 5 uppercase letters, 4 digits, 1 uppercase letter)
+    if (studentForm.panNo && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i.test(studentForm.panNo)) {
+      errors.panNo = 'PAN No must be 10 valid characters (e.g., ABCDE1234F)';
+    }
+    // Pincode → 6 digits
+    if (studentForm.address.pincode && !/^\d{6}$/.test(studentForm.address.pincode)) {
+      errors.pincode = 'Pincode must be exactly 6 digits';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
 
     setSubmitLoading(true);
     try {
+      let savedStudent: any;
       if (editingStudentId) {
-        await studentApi.updateStudent(editingStudentId, studentForm as any);
+        savedStudent = await studentApi.updateStudent(editingStudentId, studentForm as any);
         setEditingStudentId(null);
       } else {
-        await studentApi.addStudent(studentForm as any);
+        savedStudent = await studentApi.addStudent(studentForm as any);
       }
       setIsStudentModalOpen(false);
+      
+      const shouldAssignTransport = studentForm.usesTransport === 'Yes';
+      const studentIdForTransport = savedStudent?.id || savedStudent?._id;
+
       setStudentForm({
         name: '',
         email: '',
@@ -381,9 +551,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         fatherName: '',
         motherName: '',
         phone: '',
-        gender: 'Male'
+        gender: 'Male',
+        dateOfBirth: '',
+        joiningDate: '',
+        category: 'General',
+        aadharNo: '',
+        samagraId: '',
+        apaarId: '',
+        panNo: '',
+        usesTransport: 'No',
+        address: {
+          village: '',
+          postOffice: '',
+          tehsil: '',
+          district: '',
+          state: '',
+          pincode: ''
+        }
       });
       triggerDataRefresh();
+
+      if (shouldAssignTransport && studentIdForTransport) {
+        setUsesTransportPresetStudentId(studentIdForTransport);
+        setCurrentTab('transport');
+      }
     } catch (err: any) {
       setFormErrors({ submit: err.message || 'Admission failed' });
     } finally {
@@ -465,6 +656,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         amountPaid: parseFloat(feeForm.amountPaid),
         paymentMethod: feeForm.paymentMethod
       });
+
+      // Synchronize with local storage fee history
+      const selectedStudent = allStudents.find(s => s.id === feeForm.studentId);
+      feeApi.addLocalPayment({
+        studentId: feeForm.studentId,
+        name: selectedStudent?.name || 'Student',
+        admissionNo: selectedStudent?.admissionNo || 'ADM-UNK',
+        className: selectedStudent?.class || 'General',
+        amount: parseFloat(feeForm.amountPaid),
+        paymentMethod: feeForm.paymentMethod
+      });
+
       setIsFeeModalOpen(false);
       setFeeForm({ studentId: '', amountPaid: '', paymentMethod: 'Cash' });
       triggerDataRefresh();
@@ -576,31 +779,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleExportStudentsExcel = () => {
-    const headers = ['ID', 'Name', 'Email', 'Admission No', 'Class', 'Section', 'Roll No', 'Class Category', 'Gender', 'Phone', 'Parent Name', 'Admission Date'];
-    const keys = ['id', 'name', 'email', 'admissionNo', 'class', 'section', 'rollNo', 'classCategory', 'gender', 'phone', 'parentName', 'admissionDate'];
+    const headers = [
+      'ID', 'Name', 'Email', 'Admission No', 'Class', 'Section', 'Roll No', 
+      'Gender', 'Date of Birth', 'Joining Date', 'Category', 'Phone', 
+      'Father Name', 'Mother Name', 'Aadhaar No', 'Samagra ID', 'APAAR ID', 'PAN No',
+      'Village', 'Post Office', 'Tehsil', 'District', 'State', 'Pincode'
+    ];
+    const keys = [
+      'id', 'name', 'email', 'admissionNo', 'class', 'section', 'rollNo',
+      'gender', 'dateOfBirth', 'joiningDate', 'category', 'phone',
+      'fatherName', 'motherName', 'aadharNo', 'samagraId', 'apaarId', 'panNo',
+      'village', 'postOffice', 'tehsil', 'district', 'state', 'pincode'
+    ];
     const dataToExport = filteredStudents.map(student => ({
       ...student,
       admissionNo: student.admissionNo || student.rollNumber || '',
-      class: student.class || 'Grade 10',
+      class: student.class || 'Nursery',
       section: student.section || 'A',
       rollNo: student.rollNo || '',
       phone: student.phone || student.contact || '',
-      parentName: student.parentName || student.fatherName || ''
+      fatherName: student.fatherName || student.parentName || '',
+      village: student.address?.village || '',
+      postOffice: student.address?.postOffice || '',
+      tehsil: student.address?.tehsil || '',
+      district: student.address?.district || '',
+      state: student.address?.state || '',
+      pincode: student.address?.pincode || ''
     }));
     exportToExcel(dataToExport, headers, keys, `Students_Roster_${new Date().toISOString().split('T')[0]}`);
   };
 
   const handleExportStudentsPDF = () => {
-    const headers = ['Name & Email', 'Adm No / Roll No', 'Class Segment', 'Parent Name', 'Contact', 'Admit Date'];
+    const headers = ['Name / Adm No', 'Class / Roll', 'Gender / DOB / Category', 'Contact & Parents', 'Govt IDs', 'Address & Village'];
     const rows = filteredStudents.map(s => [
-      `${s.name}\n(${s.email})`,
-      `${s.admissionNo || s.rollNumber || 'N/A'}${s.rollNo ? ` / Roll: ${s.rollNo}` : ''}`,
-      `${s.class || 'N/A'} - Section ${s.section || 'N/A'} (${s.classCategory})`,
-      s.parentName || s.fatherName || 'N/A',
-      s.phone || s.contact || 'N/A',
-      s.admissionDate || 'N/A'
+      `${s.name}\nAdm No: ${s.admissionNo || s.rollNumber || 'N/A'}\n(${s.email})`,
+      `${s.class || 'N/A'}\nSection: ${s.section || 'A'}\nRoll: ${s.rollNo || 'N/A'}`,
+      `Gender: ${s.gender || 'Male'}\nDOB: ${s.dateOfBirth || 'N/A'}\nCat: ${s.category || 'General'}`,
+      `Father: ${s.fatherName || 'N/A'}\nMother: ${s.motherName || 'N/A'}\nPhone: ${s.phone || 'N/A'}`,
+      `Aadhaar: ${s.aadharNo || 'N/A'}\nSamagra: ${s.samagraId || 'N/A'}\nAPAAR: ${s.apaarId || 'N/A'}\nPAN: ${s.panNo || 'N/A'}`,
+      `Village: ${s.address?.village || 'N/A'}\nDist: ${s.address?.district || 'N/A'}\nPin: ${s.address?.pincode || 'N/A'}`
     ]);
-    exportToPrintablePDF('Student registry & roster report', headers, rows, 'student_registry_report');
+    exportToPrintablePDF('Student complete registry & roster report', headers, rows, 'student_registry_report');
   };
 
   const handleExportTeachersExcel = () => {
@@ -643,6 +862,84 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     exportToPrintablePDF('Financial center ledger summary', headers, rows, 'fees_ledger_report');
   };
 
+  const handleExportFeeHistoryExcel = () => {
+    const headers = ['Receipt No', 'Student', 'Admission No', 'Class', 'Amount', 'Payment Method', 'Date'];
+    const keys = ['receiptNo', 'name', 'admissionNo', 'className', 'amount', 'paymentMethod', 'date'];
+    exportToExcel(feeHistory, headers, keys, `Fee_History_${new Date().toISOString().split('T')[0]}`);
+  };
+
+  const handleExportFeeHistoryPDF = () => {
+    const headers = ['Receipt No', 'Student Name', 'Admission No', 'Class', 'Amount', 'Payment Method', 'Date'];
+    const rows = feeHistory.map(item => [
+      item.receiptNo || '',
+      item.name || '',
+      item.admissionNo || '',
+      item.className || '',
+      `₹${(item.amount ?? 0).toLocaleString()}`,
+      item.paymentMethod || '',
+      item.date || ''
+    ]);
+    exportToPrintablePDF('Fee Payment History & Reports', headers, rows, 'fee_payment_history_report');
+  };
+
+  const handlePrintFeeHistory = () => {
+    const printContent = `
+      <html>
+        <head>
+          <title>Fee Payment History & Reports</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; }
+            h1 { font-size: 18px; margin-bottom: 5px; }
+            p { font-size: 12px; color: #666; margin-top: 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 11px; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            .total-info { margin-top: 15px; font-size: 12px; font-weight: bold; text-align: right; }
+          </style>
+        </head>
+        <body>
+          <h1>Fee Payment History & Reports</h1>
+          <p>Generated on ${new Date().toLocaleDateString()}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Receipt No</th>
+                <th>Student</th>
+                <th>Admission No</th>
+                <th>Class</th>
+                <th>Amount</th>
+                <th>Payment Method</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${feeHistory.map(item => `
+                <tr>
+                  <td>${item.receiptNo || 'N/A'}</td>
+                  <td>${item.name || 'N/A'}</td>
+                  <td>${item.admissionNo || 'N/A'}</td>
+                  <td>${item.className || 'N/A'}</td>
+                  <td>₹${(item.amount ?? 0).toLocaleString()}</td>
+                  <td>${item.paymentMethod || 'N/A'}</td>
+                  <td>${item.date || 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="total-info">
+            Total Collection: ₹${totalCollection.toLocaleString()} | Payments Received: ${totalPayments}
+          </div>
+        </body>
+      </html>
+    `;
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(printContent);
+      win.document.close();
+      win.print();
+    }
+  };
+
   const handleExportFeeStructuresExcel = () => {
     const headers = ['ID', 'Class', 'Admission Fee', 'Tuition Fee', 'Computer Fee', 'Exam Fee', 'Cultural Activity Fee', 'Academic Session', 'Total Fee', 'June Installment', 'September Installment', 'December Installment', 'March Installment'];
     const keys = ['id', 'class', 'admissionFee', 'tuitionFee', 'computerFee', 'examFee', 'culturalActivityFee', 'academicSession', 'totalFee', 'juneAmount', 'septemberAmount', 'decemberAmount', 'marchAmount'];
@@ -665,16 +962,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // --- FILTERED DIRECTORIES ---
-  const filteredStudents = (Array.isArray(students) ? students : []).filter(s => {
-    const matchesSearch = (s.name || '').toLowerCase().includes(query) ||
-      (s.email || '').toLowerCase().includes(query) ||
-      (s.admissionNo || s.rollNumber || '').toLowerCase().includes(query) ||
-      (s.classCategory || '').toLowerCase().includes(query) ||
-      (s.class || '').toLowerCase().includes(query);
-
-    const matchesClass = studentClassFilter === 'All' || s.class === studentClassFilter;
-    return matchesSearch && matchesClass;
-  });
+  const filteredStudents = students;
 
   const filteredTeachers = (Array.isArray(teachers) ? teachers : []).filter(t => 
     (t.name || '').toLowerCase().includes(query) ||
@@ -722,7 +1010,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                currentTab === 'teachers' ? 'Faculty Directories' :
                currentTab === 'fees' ? 'Financial Center' :
                currentTab === 'fee-structure' ? 'Fee Structure Policy Matrix' :
-               currentTab === 'notices' ? 'Bulletin Bullet Board' : 
+               currentTab === 'transfer-certificates' ? 'Transfer Certificates' :
                currentTab.toUpperCase() + ' panel'}
             </h1>
             <span className="hidden sm:inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200/50 text-blue-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
@@ -734,6 +1022,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               ? 'Welcome back. Monitoring activity at The School of Pansy Flowers.' 
               : currentTab === 'fee-structure'
               ? 'Configure standard grade-wise default tuition, assessments, and operational levies.'
+              : currentTab === 'transfer-certificates'
+              ? 'Generate, manage, print and download student transfer certificates.'
               : `Manage operational parameters under The School of Pansy Flowers ${currentTab} directory.`}
           </p>
         </div>
@@ -747,11 +1037,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {currentTab === 'teachers' && (
           <Button onClick={() => setIsTeacherModalOpen(true)} leftIcon={<Plus size={16} />}>
             Onboard Faculty
-          </Button>
-        )}
-        {currentTab === 'notices' && (
-          <Button onClick={() => setIsNoticeModalOpen(true)} leftIcon={<Plus size={16} />}>
-            Publish Notice
           </Button>
         )}
         {currentTab === 'fees' && (
@@ -830,7 +1115,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 description="Book term collections, generate automated audit invoices & tracking logs."
                 actionText="Collect Term Fee"
                 icon={DollarSign}
-                onClick={handleDashboardCollectTermFee}
+                onClick={() => setIsFeeModalOpen(true)}
                 accentBgClass="bg-emerald-50/70 border border-emerald-100/50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white"
                 accentTextClass="text-emerald-700"
               />
@@ -846,13 +1131,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </section>
 
-          {/* 3. MIDDLE SECTION DUAL ANALYTICS LAYOUTS */}
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 3. MIDDLE SECTION ANALYTICS LAYOUTS */}
+          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             <div className="h-full">
               <FeeCollectionWidget fees={fees} loading={loading} />
             </div>
             <div className="h-full">
               <StudentDistribution distribution={distribution} loading={loading} />
+            </div>
+            <div className="h-full">
+              <StudentsByCategory students={allStudents} loading={loading} />
             </div>
           </section>
 
@@ -872,44 +1160,95 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {currentTab === 'students' && (
         <Card className="overflow-hidden">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-100 mb-4">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:max-w-xl">
+            <div className="flex flex-wrap items-center gap-3 w-full lg:max-w-4xl">
               <div className="relative w-full sm:max-w-xs">
                 <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   placeholder="Search registered students..."
-                  className="w-full text-xs font-semibold pl-9 pr-4 py-2 border border-slate-200 focus:border-blue-500 rounded-lg outline-hidden"
+                  className="w-full text-xs font-semibold pl-9 pr-4 py-2 border border-slate-200 focus:border-blue-500 rounded-lg outline-hidden bg-slate-50/50"
                   disabled
                 />
               </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider select-none whitespace-nowrap">Class:</span>
-                <select
-                  value={studentClassFilter}
-                  onChange={(e) => setStudentClassFilter(e.target.value)}
-                  className="px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-700 focus:border-blue-500 cursor-pointer outline-hidden min-w-[110px]"
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none whitespace-nowrap">Class:</span>
+                  <select
+                    value={studentClassFilter}
+                    onChange={(e) => setStudentClassFilter(e.target.value)}
+                    className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-700 focus:border-blue-500 cursor-pointer outline-hidden min-w-[100px]"
+                  >
+                    <option value="All">All Classes</option>
+                    <option value="Nursery">Nursery</option>
+                    <option value="LKG">LKG</option>
+                    <option value="UKG">UKG</option>
+                    <option value="1st">1st</option>
+                    <option value="2nd">2nd</option>
+                    <option value="3rd">3rd</option>
+                    <option value="4th">4th</option>
+                    <option value="5th">5th</option>
+                    <option value="6th">6th</option>
+                    <option value="7th">7th</option>
+                    <option value="8th">8th</option>
+                    <option value="9th">9th</option>
+                    <option value="10th">10th</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none whitespace-nowrap">Category:</span>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-700 focus:border-blue-500 cursor-pointer outline-hidden min-w-[110px]"
+                  >
+                    <option value="All">All</option>
+                    <option value="General">General</option>
+                    <option value="OBC">OBC</option>
+                    <option value="SC">SC</option>
+                    <option value="ST">ST</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none whitespace-nowrap">Village:</span>
+                  <input
+                    type="text"
+                    value={villageFilter}
+                    placeholder="Village Name"
+                    onChange={(e) => setVillageFilter(e.target.value)}
+                    className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-semibold text-slate-700 focus:border-blue-500 outline-hidden w-28 placeholder:text-slate-400"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none whitespace-nowrap">Sort By:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-700 focus:border-blue-500 cursor-pointer outline-hidden min-w-[110px]"
+                  >
+                    <option value="admissionNo">Admission No</option>
+                    <option value="name">Student Name</option>
+                    <option value="class">Class</option>
+                    <option value="joiningDate">Joining Date</option>
+                    <option value="category">Category</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs"
                 >
-                  <option value="All">All Classes</option>
-                  <option value="Nursery">Nursery</option>
-                  <option value="LKG">LKG</option>
-                  <option value="UKG">UKG</option>
-                  <option value="1st">1st</option>
-                  <option value="2nd">2nd</option>
-                  <option value="3rd">3rd</option>
-                  <option value="4th">4th</option>
-                  <option value="5th">5th</option>
-                  <option value="6th">6th</option>
-                  <option value="7th">7th</option>
-                  <option value="8th">8th</option>
-                  <option value="9th">9th</option>
-                  <option value="10th">10th</option>
-                </select>
+                  {order === 'asc' ? '↑ Ascending' : '↓ Descending'}
+                </button>
               </div>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <span className="text-xs font-semibold text-slate-400 mr-2 hidden md:inline">
-                Showing {filteredStudents.length} overall matches
+              <span className="text-xs font-semibold text-slate-400 mr-2 hidden md:inline font-sans">
+                Showing {filteredStudents.length} of {pagination?.totalStudents != null ? pagination.totalStudents : filteredStudents.length} students
               </span>
               <button
                 onClick={handleExportStudentsExcel}
@@ -936,17 +1275,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <tr className="bg-slate-50 border-b border-slate-100 font-bold text-slate-700 select-none">
                   <th className="p-4 px-6">Student Name</th>
                   <th className="p-4">Admission No</th>
-                  <th className="p-4">Parent Name</th>
                   <th className="p-4">Class</th>
-                  <th className="p-4">Section</th>
-                  <th className="p-4">Phone</th>
+                  <th className="p-4">Category</th>
+                  <th className="p-4">Village</th>
+                  <th className="p-4">Aadhaar No</th>
+                  <th className="p-4">Samagra ID</th>
+                  <th className="p-4">APAAR ID</th>
+                  <th className="p-4">PAN No</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-slate-400">
+                    <td colSpan={10} className="text-center py-8 text-slate-400">
                       No matching student catalogs detected.
                     </td>
                   </tr>
@@ -962,7 +1304,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="p-4 font-mono font-bold text-slate-500">
                         {stu.admissionNo || stu.rollNumber || 'N/A'}
                       </td>
-                      <td className="p-4 text-slate-700 font-bold">{stu.parentName}</td>
                       <td className="p-4">
                         <Badge 
                           variant={
@@ -972,13 +1313,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           } 
                           size="sm"
                         >
-                          {stu.class || stu.classCategory || 'N/A'}
+                          {stu.class || stu.classCategory || 'N/A'} {stu.section ? `- ${stu.section}` : ''}
                         </Badge>
                       </td>
-                      <td className="p-4 text-slate-600 font-semibold">{stu.section || 'N/A'}</td>
-                      <td className="p-4 text-slate-505">{stu.phone || stu.contact || 'N/A'}</td>
+                      <td className="p-4 font-bold text-slate-700">{stu.category || 'General'}</td>
+                      <td className="p-4 font-semibold text-slate-600">{stu.address?.village || 'N/A'}</td>
+                      <td className="p-4 font-mono text-slate-600">{stu.aadharNo || 'N/A'}</td>
+                      <td className="p-4 font-mono text-slate-600">{stu.samagraId || 'N/A'}</td>
+                      <td className="p-4 font-mono text-slate-600">{stu.apaarId || 'N/A'}</td>
+                      <td className="p-4 font-mono text-slate-600">{stu.panNo || 'N/A'}</td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => { setSelectedViewStudent(stu); setIsViewStudentModalOpen(true); }}
+                            title="View Student Profile"
+                            className="p-1.5 cursor-pointer rounded-lg hover:bg-slate-100 text-slate-500 hover:text-blue-600 transition-all select-none active:scale-95"
+                          >
+                            <Eye size={13} />
+                          </button>
                           <button
                             onClick={() => handleEditStudentClick(stu)}
                             title="Edit Student Roster Details"
@@ -1001,6 +1353,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {pagination && (
+            <div className="flex items-center justify-between gap-4 p-4 border-t border-slate-100 bg-slate-50/40 select-none">
+              <button
+                type="button"
+                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                disabled={page <= 1}
+                className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 hover:border-slate-300 rounded-lg bg-white text-xs font-bold text-slate-600 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:text-slate-600 transition-all select-none active:scale-95 cursor-pointer shadow-xs"
+              >
+                Previous
+              </button>
+              <span className="text-xs font-bold text-slate-500 font-sans">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage(prev => Math.min(prev + 1, pagination.totalPages))}
+                disabled={page >= pagination.totalPages}
+                className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 hover:border-slate-300 rounded-lg bg-white text-xs font-bold text-slate-600 hover:text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:text-slate-600 transition-all select-none active:scale-95 cursor-pointer shadow-xs"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </Card>
       )}
 
@@ -1236,6 +1613,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               paymentMethod: customPayMode
             });
 
+            // Synchronize with local storage fee history
+            feeApi.addLocalPayment({
+              studentId: activeRecord.id,
+              name: activeRecord.name,
+              admissionNo: activeRecord.admissionNo,
+              className: activeRecord.className,
+              amount: amountFloat,
+              paymentMethod: customPayMode
+            });
+
             // Trigger fetch refresh to fetch everything fresh from database
             triggerDataRefresh();
 
@@ -1277,6 +1664,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <p className="text-[11px] text-slate-450 font-semibold tracking-wide">
                 Perform student lookup, assess active tuition margins & book settlements in real time.
               </p>
+            </div>
+
+            {/* Collection Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50/30 p-5 rounded-xl border border-emerald-100/65 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600/85">Total Collection</p>
+                  <p className="text-2xl font-black text-emerald-950 mt-1">₹{(totalCollection || 0).toLocaleString()}</p>
+                </div>
+                <div className="p-3 bg-emerald-500/10 rounded-lg text-emerald-600">
+                  <DollarSign size={20} />
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50/30 p-5 rounded-xl border border-blue-100/65 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600/85">Payments Received</p>
+                  <p className="text-2xl font-black text-blue-950 mt-1">{totalPayments || 0}</p>
+                </div>
+                <div className="p-3 bg-blue-500/10 rounded-lg text-blue-600">
+                  <FileText size={20} />
+                </div>
+              </div>
             </div>
 
             {/* Top Toolbar Control Bar */}
@@ -1513,21 +1923,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="space-y-3">
                     <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Payment History</h4>
                     <div className="space-y-2.5 max-h-40 overflow-y-auto pr-1">
-                      {activeRecord.paymentHistory.length === 0 ? (
-                        <p className="text-[10px] text-slate-400 bg-slate-50 p-4 text-center rounded-lg font-semibold border border-dashed text-slate-505">
-                          No historical ledger payments archived.
-                        </p>
-                      ) : (
-                        activeRecord.paymentHistory.map((item, index) => (
+                      {(() => {
+                        const studentPayments = feeHistory.filter(h => h.studentId === activeRecord.id);
+                        const displayList = studentPayments.length > 0 ? studentPayments.map(sp => ({
+                          date: sp.date,
+                          amount: sp.amount,
+                          paymentMethod: sp.paymentMethod,
+                          receiptNo: sp.receiptNo
+                        })) : activeRecord.paymentHistory.map(ph => ({
+                          date: ph.date,
+                          amount: ph.amount,
+                          paymentMethod: (ph as any).paymentMethod || 'Cash',
+                          receiptNo: (ph as any).receiptNo || `REC-2026-${Math.floor(1000 + Math.random() * 9000)}`
+                        }));
+
+                        if (displayList.length === 0) {
+                          return (
+                            <p className="text-[10px] text-slate-400 bg-slate-50 p-4 text-center rounded-lg font-semibold border border-dashed">
+                              No historical ledger payments archived.
+                            </p>
+                          );
+                        }
+
+                        return displayList.map((item, index) => (
                           <div 
                             key={index} 
-                            className="flex items-center justify-between text-xs p-2.5 bg-slate-50 border border-slate-100/70 rounded-lg hover:border-slate-200 transition-colors"
+                            className="flex flex-col gap-1 text-xs p-2.5 bg-slate-50 border border-slate-100 rounded-lg hover:border-slate-200 transition-colors select-none"
                           >
-                            <span className="text-slate-500 font-bold">{item.date}</span>
-                            <span className="font-black text-slate-800">₹{(item.amount ?? 0).toLocaleString()}</span>
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-500 font-bold">{item.date}</span>
+                              <span className="font-black text-slate-800 font-mono">₹{(item.amount ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[9px] font-extrabold text-slate-400 uppercase tracking-wide border-t border-slate-100/50 pt-1 mt-0.5">
+                              <span>Ref: {item.receiptNo}</span>
+                              <Badge variant="warning" size="xs">{item.paymentMethod}</Badge>
+                            </div>
                           </div>
-                        ))
-                      )}
+                        ));
+                      })()}
                     </div>
                   </div>
 
@@ -1545,6 +1978,243 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 </Card>
               )}
+
+            </div>
+
+            {/* --- PAYMENT HISTORY & REPORTING PANEL (NEW SECTION) --- */}
+            <div className="bg-white p-6 border border-slate-100 rounded-xl shadow-xs space-y-6 select-none">
+              
+              {/* Header and Export Controls */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="text-sm font-black text-slate-800 tracking-tight uppercase">Payment History & Reports</h3>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                    Query full-school transaction histories, filter month-wise reports, and generate print slips.
+                  </p>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleExportFeeHistoryExcel}
+                    title="Export current filtered history to Excel"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 rounded-lg bg-white text-xs font-bold text-slate-600 hover:text-slate-800 transition-all select-none active:scale-95 cursor-pointer shadow-xs"
+                  >
+                    <Download size={13} className="text-emerald-500" />
+                    <span>Export Excel</span>
+                  </button>
+                  
+                  <button
+                    onClick={handleExportFeeHistoryPDF}
+                    title="Export current filtered history as printable PDF"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 rounded-lg bg-white text-xs font-bold text-slate-600 hover:text-slate-800 transition-all select-none active:scale-95 cursor-pointer shadow-xs"
+                  >
+                    <FileText size={13} className="text-indigo-500" />
+                    <span>Export PDF</span>
+                  </button>
+
+                  <button
+                    onClick={handlePrintFeeHistory}
+                    title="Print current filtered history ledger"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 rounded-lg bg-white text-xs font-bold text-slate-600 hover:text-slate-800 transition-all select-none active:scale-95 cursor-pointer shadow-xs"
+                  >
+                    <Printer size={13} className="text-blue-500" />
+                    <span>Print Reports</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Advanced Multi-Filter Form */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                
+                {/* 1. Month Filter */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Month</label>
+                  <select
+                    value={historyMonth}
+                    onChange={(e) => setHistoryMonth(e.target.value)}
+                    className="w-full text-xs font-bold px-3 py-2 bg-white border border-slate-150 rounded-lg outline-none cursor-pointer focus:border-blue-500 text-slate-700 shadow-2xs"
+                  >
+                    <option value="All">All Months</option>
+                    <option value="January">January</option>
+                    <option value="February">February</option>
+                    <option value="March">March</option>
+                    <option value="April">April</option>
+                    <option value="May">May</option>
+                    <option value="June">June</option>
+                    <option value="July">July</option>
+                    <option value="August">August</option>
+                    <option value="September">September</option>
+                    <option value="October">October</option>
+                    <option value="November">November</option>
+                    <option value="December">December</option>
+                  </select>
+                </div>
+
+                {/* 2. Year Filter */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Year</label>
+                  <select
+                    value={historyYear}
+                    onChange={(e) => setHistoryYear(e.target.value)}
+                    className="w-full text-xs font-bold px-3 py-2 bg-white border border-slate-150 rounded-lg outline-none cursor-pointer focus:border-blue-500 text-slate-700 shadow-2xs"
+                  >
+                    <option value="All">All Years</option>
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
+                    <option value="2028">2028</option>
+                  </select>
+                </div>
+
+                {/* 3. Payment Method Filter */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Payment Method</label>
+                  <select
+                    value={historyPaymentMethod}
+                    onChange={(e) => setHistoryPaymentMethod(e.target.value)}
+                    className="w-full text-xs font-bold px-3 py-2 bg-white border border-slate-150 rounded-lg outline-none cursor-pointer focus:border-blue-500 text-slate-700 shadow-2xs"
+                  >
+                    <option value="All">All Methods</option>
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                  </select>
+                </div>
+
+                {/* 4. Student Search Selector */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Student Selector</label>
+                  <select
+                    value={historyStudentId}
+                    onChange={(e) => setHistoryStudentId(e.target.value)}
+                    className="w-full text-xs font-bold px-3 py-2 bg-white border border-slate-150 rounded-lg outline-none cursor-pointer focus:border-blue-500 text-slate-700 shadow-2xs"
+                  >
+                    <option value="">All Students</option>
+                    {allStudents.map(student => (
+                      <option key={student.id} value={student.id}>
+                        {student.name} ({student.class} - {student.admissionNo})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+              </div>
+
+              {/* Payment History Table */}
+              <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 border-b border-slate-100 font-extrabold">
+                      <th className="p-3 px-4">Receipt No</th>
+                      <th className="p-3">Student</th>
+                      <th className="p-3">Admission No</th>
+                      <th className="p-3">Class</th>
+                      <th className="p-3">Amount</th>
+                      <th className="p-3">Payment Method</th>
+                      <th className="p-3">Date</th>
+                      <th className="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 font-bold text-slate-700">
+                    {feeHistory.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="text-center py-12 text-slate-400 font-semibold">
+                          No transactions found for the specified filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      feeHistory.map((item) => (
+                        <tr 
+                          key={item.id}
+                          onClick={() => {
+                            setSelectedHistoryItem(item);
+                            setIsHistoryDetailModalOpen(true);
+                          }}
+                          className="hover:bg-slate-50/70 transition-all cursor-pointer"
+                        >
+                          <td className="p-3 px-4 text-blue-600 font-black">{item.receiptNo || 'N/A'}</td>
+                          <td className="p-3 text-slate-900 font-extrabold">{item.name || 'N/A'}</td>
+                          <td className="p-3 text-slate-550 font-semibold">{item.admissionNo || 'N/A'}</td>
+                          <td className="p-3 text-slate-500 font-medium">{item.className || 'N/A'}</td>
+                          <td className="p-3 text-emerald-600 font-black">₹{(item.amount ?? 0).toLocaleString()}</td>
+                          <td className="p-3">
+                            <Badge variant="warning" size="xs">
+                              {item.paymentMethod}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-slate-500 font-semibold">{item.date}</td>
+                          <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setSelectedHistoryItem(item);
+                                  setIsHistoryDetailModalOpen(true);
+                                }}
+                                title="View Receipt Details"
+                                className="px-2 py-1 text-[10px] font-extrabold rounded-md bg-slate-100 hover:bg-slate-200 text-slate-750 transition-colors flex items-center gap-1 select-none active:scale-95 cursor-pointer"
+                              >
+                                <span>👁</span> <span>View</span>
+                              </button>
+                              
+                              <button
+                                onClick={() => {
+                                  const matchingRecord = feeRecords.find(r => r.id === item.studentId);
+                                  printReceiptBill({
+                                    receiptNo: item.receiptNo,
+                                    studentName: item.name,
+                                    amount: item.amount,
+                                    paymentMode: item.paymentMethod,
+                                    className: item.className,
+                                    admissionNo: item.admissionNo,
+                                    dueAmountRemaining: matchingRecord ? matchingRecord.dueAmount : 0,
+                                    totalFee: matchingRecord ? matchingRecord.totalFee : item.amount,
+                                    paidAmountTotal: matchingRecord ? matchingRecord.paidAmount : item.amount
+                                  });
+                                }}
+                                title="Print Receipt Slips"
+                                className="px-2 py-1 text-[10px] font-extrabold rounded-md bg-blue-50 hover:bg-blue-100 text-blue-750 transition-colors flex items-center gap-1 select-none active:scale-95 cursor-pointer"
+                              >
+                                <span>🖨</span> <span>Print</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  const matchingRecord = feeRecords.find(r => r.id === item.studentId);
+                                  const content = `
+=============================================
+             ACADEMIC FEE RECEIPT
+=============================================
+Receipt Number : ${item.receiptNo}
+Student Name   : ${item.name}
+Admission No   : ${item.admissionNo}
+Class          : ${item.className}
+=============================================
+Settled Amount : ₹${item.amount.toLocaleString()}
+Payment Method : ${item.paymentMethod}
+Payment Date   : ${item.date}
+Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleString()}
+=============================================
+         Thank you for your payment!
+=============================================
+                                  `.trim();
+                                  const blob = new Blob([content], { type: 'text/plain' });
+                                  const link = document.createElement('a');
+                                  link.href = URL.createObjectURL(blob);
+                                  link.download = `Receipt_${item.receiptNo}.txt`;
+                                  link.click();
+                                }}
+                                title="Download Receipt"
+                                className="px-2 py-1 text-[10px] font-extrabold rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-750 transition-colors flex items-center gap-1 select-none active:scale-95 cursor-pointer"
+                              >
+                                <span>⬇</span> <span>Download</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
             </div>
 
@@ -1738,7 +2408,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             admissionNo: activeRecord.admissionNo,
                             dueAmountRemaining: activeRecord.dueAmount,
                             totalFee: activeRecord.totalFee,
-                            paidAmountTotal: activeRecord.paidAmount
+                            paidAmountTotal: activeRecord.paidAmount,
+                            category: activeRecord.category,
+                            village: activeRecord.village
                           });
                         }}
                         className="flex-1 py-2 border rounded-lg text-xs font-bold font-sans text-slate-700 bg-white hover:bg-slate-50 border-slate-200 transition-all shadow-xs active:scale-98 cursor-pointer"
@@ -1756,7 +2428,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             admissionNo: activeRecord.admissionNo,
                             dueAmountRemaining: activeRecord.dueAmount,
                             totalFee: activeRecord.totalFee,
-                            paidAmountTotal: activeRecord.paidAmount
+                            paidAmountTotal: activeRecord.paidAmount,
+                            category: activeRecord.category,
+                            village: activeRecord.village
                           });
                         }}
                         className="flex-1 py-2 border rounded-lg text-xs font-bold font-sans text-slate-755 bg-indigo-50 border-indigo-100 hover:bg-indigo-100 text-indigo-700 transition-all shadow-xs active:scale-98 cursor-pointer"
@@ -1777,6 +2451,100 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                   </div>
                 )}
+              </Modal>
+            )}
+
+            {/* HISTORICAL STUDENT DETAIL / RECEIPT MODAL */}
+            {isHistoryDetailModalOpen && selectedHistoryItem && (
+              <Modal
+                isOpen={isHistoryDetailModalOpen}
+                onClose={() => {
+                  setIsHistoryDetailModalOpen(false);
+                  setSelectedHistoryItem(null);
+                }}
+                title="Student Payment History Ledger"
+                footer={null}
+              >
+                <div className="space-y-5 animate-fadeIn select-none">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100/60">
+                    <p className="text-[10px] uppercase font-bold text-slate-400">Student Profile Summary</p>
+                    <h3 className="text-base font-black text-slate-900 mt-1">{selectedHistoryItem.name}</h3>
+                    <div className="grid grid-cols-2 gap-3 mt-3 text-xs font-bold text-slate-600">
+                      <div>
+                        <span className="text-slate-400">Admission No:</span>
+                        <p className="text-slate-800">{selectedHistoryItem.admissionNo}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Class:</span>
+                        <p className="text-slate-800">{selectedHistoryItem.className}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Archived Receipt Logs</h4>
+                    <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                      {(() => {
+                        const studentPayments = feeHistory.filter(item => item.studentId === selectedHistoryItem.studentId);
+                        if (studentPayments.length === 0) {
+                          return (
+                            <p className="text-xs text-slate-400 bg-slate-50 p-4 text-center rounded-lg border border-dashed font-semibold">
+                              No archived receipt logs found.
+                            </p>
+                          );
+                        }
+                        return studentPayments.map((pay, index) => (
+                          <div 
+                            key={index} 
+                            className="bg-white border border-slate-150 p-3.5 rounded-xl shadow-2xs space-y-2 flex flex-col justify-between"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="text-[10px] font-black text-blue-600 tracking-wide uppercase">{pay.receiptNo || 'N/A'}</span>
+                                <p className="text-xs text-slate-400 font-bold mt-0.5">{pay.date}</p>
+                              </div>
+                              <span className="text-sm font-black text-emerald-600">₹{(pay.amount ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div className="border-t border-dashed border-slate-100 pt-2 flex justify-between items-center text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">
+                              <span>Method: {pay.paymentMethod}</span>
+                              <button
+                                onClick={() => {
+                                  const matchingRecord = feeRecords.find(r => r.id === pay.studentId);
+                                  printReceiptBill({
+                                    receiptNo: pay.receiptNo,
+                                    studentName: pay.name,
+                                    amount: pay.amount,
+                                    paymentMode: pay.paymentMethod,
+                                    className: pay.className,
+                                    admissionNo: pay.admissionNo,
+                                    dueAmountRemaining: matchingRecord ? matchingRecord.dueAmount : 0,
+                                    totalFee: matchingRecord ? matchingRecord.totalFee : pay.amount,
+                                    paidAmountTotal: matchingRecord ? matchingRecord.paidAmount : pay.amount
+                                  });
+                                }}
+                                className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                              >
+                                Print slip 🖨
+                              </button>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <Button 
+                      fullWidth 
+                      onClick={() => {
+                        setIsHistoryDetailModalOpen(false);
+                        setSelectedHistoryItem(null);
+                      }}
+                    >
+                      Close Report
+                    </Button>
+                  </div>
+                </div>
               </Modal>
             )}
 
@@ -2045,53 +2813,168 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* --- CORE BULLETIN NOTICES TAB --- */}
-      {currentTab === 'notices' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {notices.map((n) => (
-            <Card key={n.id} hoverEffect className="space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <h4 className="text-sm font-extrabold text-slate-900">{n.title}</h4>
-                <Badge 
-                  variant={
-                    n.priority === 'High' ? 'danger' :
-                    n.priority === 'Medium' ? 'warning' : 'primary'
-                  } 
-                  size="sm"
-                >
-                  {n.priority}
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-505 leading-relaxed">{n.content}</p>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold pt-3 border-t border-slate-105">
-                <span className="flex items-center gap-1">
-                  <Calendar size={12} /> {n.date}
-                </span>
-                <span className="text-blue-600">Pub: {n.publishedBy}</span>
-              </div>
-            </Card>
-          ))}
-        </div>
+      {/* --- CORE TRANSPORT PANEL TAB --- */}
+      {currentTab === 'transport' && (
+        <TransportPanel 
+          allStudents={students} 
+          refreshTrigger={refreshTrigger} 
+          triggerDataRefresh={triggerDataRefresh}
+          assignStudentIdPreset={usesTransportPresetStudentId}
+          onClearPreset={() => setUsesTransportPresetStudentId(null)}
+        />
       )}
 
-      {/* --- MOCK COMPLETED ATTENDANCE / RESULTS PAGES --- */}
-      {['attendance', 'results', 'settings'].includes(currentTab) && (
-        <Card className="p-10 text-center space-y-4">
-          <div className="mx-auto h-12 w-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-            <CheckCircle size={24} />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-slate-900 capitalize">The School of Pansy Flowers {currentTab} module ready</h4>
-            <p className="text-xs text-slate-505 leading-relaxed max-w-md mx-auto mt-2">
-              This panel is fully compiled, styled, and ready for additional database configurations. Connect the backend via Axios endpoints matching `src/api` directories.
-            </p>
-          </div>
-        </Card>
+      {/* --- TRANSFER CERTIFICATE MODULE TAB --- */}
+      {currentTab === 'transfer-certificates' && (
+        <TransferCertificates 
+          students={students}
+          refreshTrigger={refreshTrigger}
+          triggerDataRefresh={triggerDataRefresh}
+        />
       )}
 
       {/* =========================================
                      MODALS FORM POPUPS
          ========================================= */}
+
+      {/* 0. VIEW STUDENT PROFILE DETAILS MODAL */}
+      <Modal
+        isOpen={isViewStudentModalOpen}
+        onClose={() => { setIsViewStudentModalOpen(false); setSelectedViewStudent(null); }}
+        title="Student Profile & Registry Dossier"
+        footer={
+          <Button size="sm" onClick={() => { setIsViewStudentModalOpen(false); setSelectedViewStudent(null); }}>
+            Close Dossier
+          </Button>
+        }
+      >
+        {selectedViewStudent && (
+          <div className="space-y-6">
+            {/* Header: Avatar & Core Info */}
+            <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-xl">
+              <img
+                src={`https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(selectedViewStudent.name)}`}
+                alt="Student Avatar"
+                className="h-16 w-16 rounded-xl bg-white border border-slate-200 shadow-xs flex-shrink-0"
+              />
+              <div>
+                <span className="text-[10px] bg-blue-100 border border-blue-200 text-blue-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                  {selectedViewStudent.class || 'N/A'} {selectedViewStudent.section ? `- ${selectedViewStudent.section}` : ''}
+                </span>
+                <h3 className="text-lg font-black text-slate-900 mt-1">{selectedViewStudent.name}</h3>
+                <p className="text-xs text-slate-500 font-medium">{selectedViewStudent.email}</p>
+              </div>
+            </div>
+
+            {/* Grid Layout of parameters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Box 1: Personal & Demographic Info */}
+              <div className="p-4 border border-slate-100 rounded-xl space-y-2 bg-white">
+                <h5 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-1.5">Demographics & Academic</h5>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Gender:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.gender || 'Male'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Date of Birth:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.dateOfBirth || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Joining Date:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.joiningDate || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Admission No:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.admissionNo || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Roll Number:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.rollNo || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Category:</span>
+                    <span className="font-extrabold text-blue-700">{selectedViewStudent.category || 'General'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Box 2: Government IDs */}
+              <div className="p-4 border border-slate-100 rounded-xl space-y-2 bg-white">
+                <h5 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-1.5">Government IDs</h5>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Aadhaar No:</span>
+                    <span className="font-extrabold text-slate-800 font-mono">{selectedViewStudent.aadharNo || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Samagra ID:</span>
+                    <span className="font-extrabold text-slate-800 font-mono">{selectedViewStudent.samagraId || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">APAAR ID:</span>
+                    <span className="font-extrabold text-slate-800 font-mono">{selectedViewStudent.apaarId || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">PAN No:</span>
+                    <span className="font-extrabold text-slate-800 font-mono">{selectedViewStudent.panNo || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Box 3: Parent & Contact Details */}
+              <div className="p-4 border border-slate-100 rounded-xl space-y-2 bg-white">
+                <h5 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-1.5">Family & Contact</h5>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Father's Name:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.fatherName || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Mother's Name:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.motherName || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Phone No:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.phone || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Box 4: Address Details */}
+              <div className="p-4 border border-slate-100 rounded-xl space-y-2 bg-white">
+                <h5 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-1.5">Address Details</h5>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Village:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.address?.village || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Post Office:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.address?.postOffice || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Tehsil:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.address?.tehsil || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">District:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.address?.district || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">State:</span>
+                    <span className="font-extrabold text-slate-800">{selectedViewStudent.address?.state || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450 font-bold">Pincode:</span>
+                    <span className="font-extrabold text-slate-800 font-mono">{selectedViewStudent.address?.pincode || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* 1. ADMIT STUDENT MODAL */}
       <Modal
@@ -2109,27 +2992,279 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         }
       >
-        <form id="student-admit-form" onSubmit={handleStudentSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <form id="student-admit-form" onSubmit={handleStudentSubmit} className="space-y-5">
+          {/* Section 1: Academic & Personal Info */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+            <h5 className="text-xs font-bold text-slate-500 tracking-wider uppercase border-b border-slate-200/60 pb-1.5">Academic & Personal Info</h5>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="FULL NAME"
+                placeholder="e.g. Lillian Thorne"
+                value={studentForm.name}
+                onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
+                error={formErrors.name}
+                required
+              />
+              <div className="w-full flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-700 tracking-wide select-none">
+                  GENDER
+                </label>
+                <select
+                  className="w-full px-3.5 py-2 text-sm text-slate-900 bg-white border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-lg transition-all duration-200 outline-hidden cursor-pointer"
+                  value={studentForm.gender}
+                  onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
+                  required
+                >
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="DATE OF BIRTH"
+                type="date"
+                value={studentForm.dateOfBirth}
+                onChange={(e) => setStudentForm({ ...studentForm, dateOfBirth: e.target.value })}
+              />
+              <Input
+                label="JOINING DATE"
+                type="date"
+                value={studentForm.joiningDate}
+                onChange={(e) => setStudentForm({ ...studentForm, joiningDate: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Input
+                label="ADMISSION NO"
+                placeholder="SOPF1092"
+                value={studentForm.admissionNo}
+                onChange={(e) => setStudentForm({ ...studentForm, admissionNo: e.target.value })}
+                required
+              />
+              <div className="w-full flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-700 tracking-wide select-none">
+                  CLASS
+                </label>
+                <div className="relative flex items-center w-full">
+                  <select
+                    className="w-full px-3.5 py-2 text-sm text-slate-900 bg-white border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-lg transition-all duration-200 outline-hidden cursor-pointer"
+                    value={studentForm.class}
+                    onChange={(e) => setStudentForm({ ...studentForm, class: e.target.value })}
+                    required
+                  >
+                    <option value="Nursery">Nursery</option>
+                    <option value="LKG">LKG</option>
+                    <option value="UKG">UKG</option>
+                    <option value="1st">1st</option>
+                    <option value="2nd">2nd</option>
+                    <option value="3rd">3rd</option>
+                    <option value="4th">4th</option>
+                    <option value="5th">5th</option>
+                    <option value="6th">6th</option>
+                    <option value="7th">7th</option>
+                    <option value="8th">8th</option>
+                    <option value="9th">9th</option>
+                    <option value="10th">10th</option>
+                  </select>
+                </div>
+              </div>
+              <Input
+                label="SECTION"
+                placeholder="A"
+                value={studentForm.section}
+                onChange={(e) => setStudentForm({ ...studentForm, section: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="ROLL NO"
+                type="number"
+                placeholder="15"
+                value={studentForm.rollNo}
+                onChange={(e) => setStudentForm({ ...studentForm, rollNo: e.target.value })}
+                required
+              />
+              <div className="w-full flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-700 tracking-wide select-none">
+                  CATEGORY
+                </label>
+                <select
+                  className="w-full px-3.5 py-2 text-sm text-slate-900 bg-white border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-lg transition-all duration-200 outline-hidden cursor-pointer"
+                  value={studentForm.category}
+                  onChange={(e) => setStudentForm({ ...studentForm, category: e.target.value as any })}
+                  required
+                >
+                  <option value="General">General</option>
+                  <option value="OBC">OBC</option>
+                  <option value="SC">SC</option>
+                  <option value="ST">ST</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Government IDs */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+            <h5 className="text-xs font-bold text-slate-500 tracking-wider uppercase border-b border-slate-200/60 pb-1.5">Government IDs</h5>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="AADHAAR NO"
+                placeholder="12-digit Aadhaar No"
+                value={studentForm.aadharNo}
+                onChange={(e) => setStudentForm({ ...studentForm, aadharNo: e.target.value })}
+                error={formErrors.aadharNo}
+              />
+              <Input
+                label="SAMAGRA ID"
+                placeholder="Samagra ID"
+                value={studentForm.samagraId}
+                onChange={(e) => setStudentForm({ ...studentForm, samagraId: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="APAAR ID"
+                placeholder="APAAR ID"
+                value={studentForm.apaarId}
+                onChange={(e) => setStudentForm({ ...studentForm, apaarId: e.target.value })}
+              />
+              <Input
+                label="PAN NO"
+                placeholder="10-char PAN No"
+                value={studentForm.panNo}
+                onChange={(e) => setStudentForm({ ...studentForm, panNo: e.target.value.toUpperCase() })}
+                error={formErrors.panNo}
+              />
+            </div>
+          </div>
+
+          {/* Section 2.5: Transport & Logistics */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+            <h5 className="text-xs font-bold text-slate-500 tracking-wider uppercase border-b border-slate-200/60 pb-1.5">Transport & Logistics</h5>
+            <div className="w-full flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-700 tracking-wide select-none">
+                USES TRANSPORT SERVICES?
+              </label>
+              <select
+                className="w-full px-3.5 py-2 text-sm text-slate-900 bg-white border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-lg transition-all duration-200 outline-hidden cursor-pointer"
+                value={studentForm.usesTransport}
+                onChange={(e) => setStudentForm({ ...studentForm, usesTransport: e.target.value as any })}
+                required
+              >
+                <option value="No">No - Independent Travel</option>
+                <option value="Yes">Yes - Assign School Bus Route</option>
+              </select>
+              <p className="text-[10px] text-slate-400 font-semibold">
+                Selecting "Yes" will automatically route you to assign a bus route, pickup point, and monthly charge once the student's admission is saved.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 3: Parental Details & Contact */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+            <h5 className="text-xs font-bold text-slate-500 tracking-wider uppercase border-b border-slate-200/60 pb-1.5">Parental & Contact Details</h5>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="FATHER'S NAME"
+                placeholder="David Thorne"
+                value={studentForm.fatherName}
+                onChange={(e) => setStudentForm({ ...studentForm, fatherName: e.target.value })}
+                required
+              />
+              <Input
+                label="MOTHER'S NAME"
+                placeholder="Mary Thorne"
+                value={studentForm.motherName}
+                onChange={(e) => setStudentForm({ ...studentForm, motherName: e.target.value })}
+                required
+              />
+            </div>
             <Input
-              label="FULL NAME"
-              placeholder="e.g. Lillian Thorne"
-              value={studentForm.name}
-              onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
-              error={formErrors.name}
-              required
-            />
-            <Input
-              label="GENDER"
-              placeholder="Male / Female / Other"
-              value={studentForm.gender}
-              onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
+              label="PHONE / CONTACT (10 Digits)"
+              placeholder="e.g. 9876543210"
+              value={studentForm.phone}
+              onChange={(e) => setStudentForm({ ...studentForm, phone: e.target.value })}
+              error={formErrors.phone}
               required
             />
           </div>
 
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-3">
-            <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">User Portal Login Credentials</p>
+          {/* Section 4: Address Details */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+            <h5 className="text-xs font-bold text-slate-500 tracking-wider uppercase border-b border-slate-200/60 pb-1.5">Address Details</h5>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="VILLAGE"
+                placeholder="e.g. Rampur"
+                value={studentForm.address.village}
+                onChange={(e) => setStudentForm({
+                  ...studentForm,
+                  address: { ...studentForm.address, village: e.target.value }
+                })}
+              />
+              <Input
+                label="POST OFFICE"
+                placeholder="e.g. Post Office"
+                value={studentForm.address.postOffice}
+                onChange={(e) => setStudentForm({
+                  ...studentForm,
+                  address: { ...studentForm.address, postOffice: e.target.value }
+                })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="TEHSIL"
+                placeholder="e.g. Tehsil"
+                value={studentForm.address.tehsil}
+                onChange={(e) => setStudentForm({
+                  ...studentForm,
+                  address: { ...studentForm.address, tehsil: e.target.value }
+                })}
+              />
+              <Input
+                label="DISTRICT"
+                placeholder="e.g. Raipur"
+                value={studentForm.address.district}
+                onChange={(e) => setStudentForm({
+                  ...studentForm,
+                  address: { ...studentForm.address, district: e.target.value }
+                })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="STATE"
+                placeholder="e.g. Chhattisgarh"
+                value={studentForm.address.state}
+                onChange={(e) => setStudentForm({
+                  ...studentForm,
+                  address: { ...studentForm.address, state: e.target.value }
+                })}
+              />
+              <Input
+                label="PINCODE"
+                placeholder="e.g. 492001"
+                value={studentForm.address.pincode}
+                onChange={(e) => setStudentForm({
+                  ...studentForm,
+                  address: { ...studentForm.address, pincode: e.target.value }
+                })}
+                error={formErrors.pincode}
+              />
+            </div>
+          </div>
+
+          {/* Section 5: Portal Credentials */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+            <h5 className="text-xs font-bold text-slate-500 tracking-wider uppercase border-b border-slate-200/60 pb-1.5">User Portal Login Credentials</h5>
             <div className="grid grid-cols-2 gap-3">
               <Input
                 label="LOGIN EMAIL"
@@ -2148,85 +3283,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 required
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <Input
-              label="ADMISSION NO"
-              placeholder="SOPF1092"
-              value={studentForm.admissionNo}
-              onChange={(e) => setStudentForm({ ...studentForm, admissionNo: e.target.value })}
-              required
-            />
-            <div className="w-full flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-700 tracking-wide select-none">
-                CLASS
-              </label>
-              <div className="relative flex items-center w-full">
-                <select
-                  className="w-full px-3.5 py-2 text-sm text-slate-900 bg-white border border-slate-200 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 rounded-lg transition-all duration-200 outline-hidden cursor-pointer"
-                  value={studentForm.class}
-                  onChange={(e) => setStudentForm({ ...studentForm, class: e.target.value })}
-                  required
-                >
-                  <option value="Nursery">Nursery</option>
-                  <option value="LKG">LKG</option>
-                  <option value="UKG">UKG</option>
-                  <option value="1st">1st</option>
-                  <option value="2nd">2nd</option>
-                  <option value="3rd">3rd</option>
-                  <option value="4th">4th</option>
-                  <option value="5th">5th</option>
-                  <option value="6th">6th</option>
-                  <option value="7th">7th</option>
-                  <option value="8th">8th</option>
-                  <option value="9th">9th</option>
-                  <option value="10th">10th</option>
-                </select>
-              </div>
-            </div>
-            <Input
-              label="SECTION"
-              placeholder="A"
-              value={studentForm.section}
-              onChange={(e) => setStudentForm({ ...studentForm, section: e.target.value })}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="ROLL NO"
-              type="number"
-              placeholder="15"
-              value={studentForm.rollNo}
-              onChange={(e) => setStudentForm({ ...studentForm, rollNo: e.target.value })}
-              required
-            />
-            <Input
-              label="PHONE / CONTACT"
-              placeholder="+91 95550 99999"
-              value={studentForm.phone}
-              onChange={(e) => setStudentForm({ ...studentForm, phone: e.target.value })}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="FATHER'S NAME"
-              placeholder="David Thorne"
-              value={studentForm.fatherName}
-              onChange={(e) => setStudentForm({ ...studentForm, fatherName: e.target.value })}
-              required
-            />
-            <Input
-              label="MOTHER'S NAME"
-              placeholder="Mary Thorne"
-              value={studentForm.motherName}
-              onChange={(e) => setStudentForm({ ...studentForm, motherName: e.target.value })}
-              required
-            />
           </div>
         </form>
       </Modal>
@@ -2413,66 +3469,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             })()}
           </div>
         </div>
-      </Modal>
-
-      {/* 4. GENERAL BULLETIN NOTICES MODAL */}
-      <Modal
-        isOpen={isNoticeModalOpen}
-        onClose={() => setIsNoticeModalOpen(false)}
-        title="Draft Bulletin Board Notice"
-        footer={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsNoticeModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" type="submit" form="bulletin-board-notice-form" isLoading={submitLoading}>
-              Publish Announcement
-            </Button>
-          </div>
-        }
-      >
-        <form id="bulletin-board-notice-form" onSubmit={handleNoticeSubmit} className="space-y-4">
-          <Input
-            label="BULLETIN HEADER TITLE"
-            placeholder="e.g. Standard Winter Break Schedule"
-            value={noticeForm.title}
-            onChange={(e) => setNoticeForm({ ...noticeForm, title: e.target.value })}
-            error={formErrors.title}
-            required
-          />
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-700">ALERT CONTENT BODY</label>
-            <textarea
-              className="w-full p-3.5 text-xs border rounded-lg bg-white border-slate-200 hover:border-slate-300 focus:border-blue-500 outline-none min-h-32 leading-relaxed text-slate-800"
-              placeholder="Provide a detailed announcement statement..."
-              value={noticeForm.content}
-              onChange={(e) => setNoticeForm({ ...noticeForm, content: e.target.value })}
-              required
-            />
-            {formErrors.content && <p className="text-[10px] font-bold text-red-500">{formErrors.content}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-700">PRIORITY LEVEL</label>
-              <select
-                className="w-full px-3 py-2 text-xs border rounded-lg bg-white border-slate-200 outline-none hover:border-slate-300"
-                value={noticeForm.priority}
-                onChange={(e) => setNoticeForm({ ...noticeForm, priority: e.target.value })}
-              >
-                <option value="High">High Priority (Red)</option>
-                <option value="Medium">Medium Priority (Yellow)</option>
-                <option value="Low">Low Priority (Blue)</option>
-              </select>
-            </div>
-            <Input
-              label="PUBLISHED BY AUTHORITY"
-              value={noticeForm.publishedBy}
-              onChange={(e) => setNoticeForm({ ...noticeForm, publishedBy: e.target.value })}
-              required
-            />
-          </div>
-        </form>
       </Modal>
 
       {/* FEE STRUCTURE MODAL */}

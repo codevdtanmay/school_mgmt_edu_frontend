@@ -5,15 +5,13 @@ import {
   Users, 
   GraduationCap, 
   DollarSign, 
-  Megaphone, 
-  CalendarCheck, 
-  Award, 
-  Settings, 
   LogOut,
   ChevronLeft,
   ChevronRight,
   Menu,
-  Coins
+  Coins,
+  Bus,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { SchoolLogo } from '../common/SchoolLogo';
@@ -43,10 +41,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'teachers', label: 'Teachers', icon: GraduationCap },
     { id: 'fees', label: 'Fees', icon: DollarSign },
     { id: 'fee-structure', label: 'Fee Structure', icon: Coins },
-    { id: 'notices', label: 'Notices', icon: Megaphone },
-    { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
-    { id: 'results', label: 'Results', icon: Award },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'transport', label: 'Transport', icon: Bus },
+    { id: 'transfer-certificates', label: 'Transfer Certificates', icon: FileText },
   ];
 
   const handleNavClick = (id: string) => {

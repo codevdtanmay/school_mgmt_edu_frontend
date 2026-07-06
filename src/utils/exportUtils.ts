@@ -267,6 +267,8 @@ export const printReceiptBill = (receipt: {
   dueAmountRemaining: number;
   totalFee: number;
   paidAmountTotal: number;
+  category?: string;
+  village?: string;
 }) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
@@ -476,6 +478,18 @@ export const printReceiptBill = (receipt: {
                 <span class="row-lbl">Academic Class:</span>
                 <span class="row-val">${receipt.className}</span>
               </div>
+              ${receipt.category ? `
+              <div class="row-item">
+                <span class="row-lbl">Category:</span>
+                <span class="row-val">${receipt.category}</span>
+              </div>
+              ` : ''}
+              ${receipt.village ? `
+              <div class="row-item">
+                <span class="row-lbl">Village:</span>
+                <span class="row-val">${receipt.village}</span>
+              </div>
+              ` : ''}
               <div class="row-item">
                 <span class="row-lbl">Mode of Payment:</span>
                 <span class="row-val">${receipt.paymentMode}</span>
