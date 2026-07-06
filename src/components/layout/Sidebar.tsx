@@ -45,10 +45,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'transfer-certificates', label: 'Transfer Certificates', icon: FileText },
   ];
 
+  const transportSubItems = [
+    { id: 'transport-students', label: 'Transport Students' },
+    { id: 'transport-fee-collection', label: 'Transport Fee Collection' },
+    { id: 'transport-payment-history', label: 'Payment History' },
+    { id: 'transport-dashboard', label: 'Dashboard' }
+  ];
+
   const handleNavClick = (id: string) => {
     setCurrentTab(id);
     setIsMobileOpen(false); // Close sidebar drawer on mobile
   };
+
+  const isTransportActive = ['transport', 'transport-students', 'transport-fee-collection', 'transport-payment-history', 'transport-dashboard'].includes(currentTab);
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white border-r border-slate-200/80">
@@ -70,27 +79,61 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = currentTab === item.id;
+          const isActive = item.id === 'transport' 
+            ? isTransportActive 
+            : currentTab === item.id;
+
           return (
-            <button
-              key={item.id}
-              onClick={() => handleNavClick(item.id)}
-              className={`flex items-center w-full rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 cursor-pointer
-                ${isActive 
-                  ? 'bg-blue-600/8 text-blue-650 border-l-4 border-blue-600 font-semibold' 
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }
-                ${isCollapsed ? 'justify-center relative group' : 'gap-3'}
-              `}
-            >
-              <Icon size={18} className={`flex-shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
-              {!isCollapsed && <span>{item.label}</span>}
-              {isCollapsed && (
-                <div className="absolute left-full ml-3 px-2 py-1 bg-slate-950 text-white text-xs font-medium rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-md">
-                  {item.label}
+            <div key={item.id} className="space-y-0.5">
+              <button
+                onClick={() => {
+                  if (item.id === 'transport') {
+                    handleNavClick('transport-students');
+                  } else {
+                    handleNavClick(item.id);
+                  }
+                }}
+                className={`flex items-center w-full rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 cursor-pointer
+                  ${isActive 
+                    ? 'bg-blue-600/8 text-blue-650 border-l-4 border-blue-600 font-semibold' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }
+                  ${isCollapsed ? 'justify-center relative group' : 'gap-3'}
+                `}
+              >
+                <Icon size={18} className={`flex-shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                {!isCollapsed && <span>{item.label}</span>}
+                {isCollapsed && (
+                  <div className="absolute left-full ml-3 px-2 py-1 bg-slate-950 text-white text-xs font-medium rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-md">
+                    {item.label}
+                  </div>
+                )}
+              </button>
+
+              {/* Render Nested Transport Sub-items if expanded */}
+              {item.id === 'transport' && isTransportActive && !isCollapsed && (
+                <div className="pl-6 pr-1 py-1 space-y-1 border-l border-slate-100 ml-5">
+                  {transportSubItems.map((sub) => {
+                    const isSubActive = currentTab === sub.id || (currentTab === 'transport' && sub.id === 'transport-students');
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => handleNavClick(sub.id)}
+                        className={`flex items-center w-full rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer text-left
+                          ${isSubActive
+                            ? 'text-blue-600 font-bold bg-blue-50/50'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                          }
+                        `}
+                      >
+                        <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${isSubActive ? 'bg-blue-500' : 'bg-slate-300'}`} />
+                        <span>{sub.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
-            </button>
+            </div>
           );
         })}
       </nav>

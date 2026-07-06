@@ -59,6 +59,8 @@ import { teacherApi } from '../../api/teacherApi';
 import { noticeApi, dashboardApi } from '../../api/noticeApi';
 import { feeStructureApi } from '../../api/feeStructureApi';
 import { feeApi } from '../../api/feeApi';
+import { transportApi } from '../../api/transportApi';
+import { useAuth } from '../../context/AuthContext';
 import { DashboardStats, Notice, Activity, FeeSummary, Student, Teacher, FeeStructure } from '../../types';
 
 interface AdminDashboardProps {
@@ -66,6 +68,58 @@ interface AdminDashboardProps {
   setCurrentTab: (tab: string) => void;
   searchQuery: string;
 }
+
+interface ReportColumn {
+  id: string;
+  label: string;
+  category: 'Basic Information' | 'Personal Information' | 'Parent Information' | 'Government IDs' | 'Address' | 'Fee Information' | 'Transport';
+}
+
+const REPORT_COLUMNS: ReportColumn[] = [
+  // Basic Information
+  { id: 'name', label: 'Student Name', category: 'Basic Information' },
+  { id: 'admissionNo', label: 'Admission No', category: 'Basic Information' },
+  { id: 'class', label: 'Class', category: 'Basic Information' },
+  { id: 'section', label: 'Section', category: 'Basic Information' },
+  { id: 'rollNo', label: 'Roll No', category: 'Basic Information' },
+  
+  // Personal Information
+  { id: 'gender', label: 'Gender', category: 'Personal Information' },
+  { id: 'dateOfBirth', label: 'Date of Birth', category: 'Personal Information' },
+  { id: 'joiningDate', label: 'Joining Date', category: 'Personal Information' },
+  { id: 'category', label: 'Category', category: 'Personal Information' },
+  
+  // Parent Information
+  { id: 'fatherName', label: 'Father Name', category: 'Parent Information' },
+  { id: 'motherName', label: 'Mother Name', category: 'Parent Information' },
+  { id: 'phone', label: 'Phone Number', category: 'Parent Information' },
+  
+  // Government IDs
+  { id: 'aadharNo', label: 'Aadhaar Number', category: 'Government IDs' },
+  { id: 'samagraId', label: 'Samagra ID', category: 'Government IDs' },
+  { id: 'apaarId', label: 'APAAR ID', category: 'Government IDs' },
+  { id: 'panNo', label: 'PAN Number', category: 'Government IDs' },
+  
+  // Address
+  { id: 'village', label: 'Village', category: 'Address' },
+  { id: 'postOffice', label: 'Post Office', category: 'Address' },
+  { id: 'tehsil', label: 'Tehsil', category: 'Address' },
+  { id: 'district', label: 'District', category: 'Address' },
+  { id: 'state', label: 'State', category: 'Address' },
+  { id: 'pincode', label: 'Pincode', category: 'Address' },
+  
+  // Fee Information
+  { id: 'totalFee', label: 'Total Fee', category: 'Fee Information' },
+  { id: 'paidAmount', label: 'Paid Amount', category: 'Fee Information' },
+  { id: 'dueAmount', label: 'Due Amount', category: 'Fee Information' },
+  { id: 'status', label: 'Fee Status', category: 'Fee Information' },
+  
+  // Transport
+  { id: 'usesTransport', label: 'Uses Transport', category: 'Transport' }
+];
+
+const DEFAULT_REPORT_COLUMNS = ['name', 'admissionNo', 'class', 'section', 'rollNo'];
+const LOCAL_STORAGE_REPORT_COLS_KEY = 'school_student_report_selected_columns';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   currentTab, 
@@ -158,6 +212,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     amount: number;
     studentName: string;
   } | null>(null);
+
+  // Authentication Context
+  const { user: currentUser } = useAuth();
+
+  // Custom Student Report States
+  const [isStudentReportModalOpen, setIsStudentReportModalOpen] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportTransports, setReportTransports] = useState<any[]>([]);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(() => {
+    const stored = localStorage.getItem(LOCAL_STORAGE_REPORT_COLS_KEY);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        return DEFAULT_REPORT_COLUMNS;
+      }
+    }
+    return DEFAULT_REPORT_COLUMNS;
+  });
 
   // EDIT STATE HOLDERS
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
@@ -768,10 +841,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteFeeStructureClick = async (id: string) => {
-     console.log("BUTTON DELETE ID:", id);
     if (confirm('Are you sure you want to delete this fee structure?')) {
       try {
-
         await feeStructureApi.deleteFeeStructure(id);
         triggerDataRefresh();
       } catch (err) {
@@ -811,17 +882,357 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     exportToExcel(dataToExport, headers, keys, `Students_Roster_${new Date().toISOString().split('T')[0]}`);
   };
 
+  const getColumnValue = (student: Student, colId: string, transportsList: any[]): string => {
+    switch (colId) {
+      case 'name': return student.name || '';
+      case 'admissionNo': return student.admissionNo || '';
+      case 'class': return student.class || '';
+      case 'section': return student.section || '';
+      case 'rollNo': return student.rollNo != null ? String(student.rollNo) : '';
+      case 'gender': return student.gender || '';
+      case 'dateOfBirth': return student.dateOfBirth || '';
+      case 'joiningDate': return student.joiningDate || student.admissionDate || '';
+      case 'category': return student.category || '';
+      case 'fatherName': return student.fatherName || '';
+      case 'motherName': return student.motherName || '';
+      case 'phone': return student.phone || student.contact || '';
+      case 'aadharNo': return student.aadharNo || '';
+      case 'samagraId': return student.samagraId || '';
+      case 'apaarId': return student.apaarId || '';
+      case 'panNo': return student.panNo || '';
+      case 'village': return student.address?.village || '';
+      case 'postOffice': return student.address?.postOffice || '';
+      case 'tehsil': return student.address?.tehsil || '';
+      case 'district': return student.address?.district || '';
+      case 'state': return student.address?.state || '';
+      case 'pincode': return student.address?.pincode || '';
+      case 'totalFee': return student.totalFee != null ? `₹${student.totalFee}` : '';
+      case 'paidAmount': return student.paidAmount != null ? `₹${student.paidAmount}` : '';
+      case 'dueAmount': return student.dueAmount != null ? `₹${student.dueAmount}` : '';
+      case 'status': return student.status || '';
+      case 'usesTransport': {
+        const hasTransport = (transportsList || []).some(t => t.studentId === student.id || (student.admissionNo && t.admissionNo === student.admissionNo));
+        return hasTransport ? 'Yes' : 'No';
+      }
+      default: return '';
+    }
+  };
+
   const handleExportStudentsPDF = () => {
-    const headers = ['Name / Adm No', 'Class / Roll', 'Gender / DOB / Category', 'Contact & Parents', 'Govt IDs', 'Address & Village'];
-    const rows = filteredStudents.map(s => [
-      `${s.name}\nAdm No: ${s.admissionNo || s.rollNumber || 'N/A'}\n(${s.email})`,
-      `${s.class || 'N/A'}\nSection: ${s.section || 'A'}\nRoll: ${s.rollNo || 'N/A'}`,
-      `Gender: ${s.gender || 'Male'}\nDOB: ${s.dateOfBirth || 'N/A'}\nCat: ${s.category || 'General'}`,
-      `Father: ${s.fatherName || 'N/A'}\nMother: ${s.motherName || 'N/A'}\nPhone: ${s.phone || 'N/A'}`,
-      `Aadhaar: ${s.aadharNo || 'N/A'}\nSamagra: ${s.samagraId || 'N/A'}\nAPAAR: ${s.apaarId || 'N/A'}\nPAN: ${s.panNo || 'N/A'}`,
-      `Village: ${s.address?.village || 'N/A'}\nDist: ${s.address?.district || 'N/A'}\nPin: ${s.address?.pincode || 'N/A'}`
-    ]);
-    exportToPrintablePDF('Student complete registry & roster report', headers, rows, 'student_registry_report');
+    setIsStudentReportModalOpen(true);
+  };
+
+  const handleGenerateStudentReport = async (isPrintDirectly: boolean) => {
+    if (selectedColumns.length === 0) {
+      alert("Please select at least one column to export.");
+      return;
+    }
+    
+    setReportLoading(true);
+    try {
+      // 1. Load active transport records if usesTransport is selected
+      let transportsList: any[] = [];
+      if (selectedColumns.includes('usesTransport')) {
+        try {
+          transportsList = await transportApi.getTransports();
+          setReportTransports(transportsList);
+        } catch (transErr) {
+          console.warn("Could not load transports for custom student report", transErr);
+        }
+      }
+
+      // 2. Load ALL filtered students matching current filter conditions
+      const res = await studentApi.getStudents({
+        page: 1,
+        limit: 10000,
+        category: categoryFilter,
+        village: villageFilter,
+        class: studentClassFilter,
+        sortBy,
+        order,
+        search: searchQuery
+      });
+      
+      const studentsToExport = res.students;
+
+      // 3. Select columns detail objects
+      const columnsToInclude = REPORT_COLUMNS.filter(col => selectedColumns.includes(col.id));
+      const headers = columnsToInclude.map(col => col.label);
+      const rows = studentsToExport.map(student => 
+        columnsToInclude.map(col => getColumnValue(student, col.id, transportsList))
+      );
+
+      // 4. Gather Active Filters
+      const activeFiltersList: string[] = [];
+      if (studentClassFilter && studentClassFilter !== 'All') {
+        activeFiltersList.push(`Class: ${studentClassFilter}`);
+      }
+      if (categoryFilter && categoryFilter !== 'All') {
+        activeFiltersList.push(`Category: ${categoryFilter}`);
+      }
+      if (villageFilter && villageFilter.trim() !== '') {
+        activeFiltersList.push(`Village: ${villageFilter}`);
+      }
+      if (searchQuery && searchQuery.trim() !== '') {
+        activeFiltersList.push(`Search: "${searchQuery}"`);
+      }
+      
+      const filtersStr = activeFiltersList.length > 0 ? activeFiltersList.join(' | ') : 'All Students';
+
+      // 5. Open and render the print/PDF page in browser pop-up
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert('Please allow popups to export printable/PDF reports.');
+        setReportLoading(false);
+        return;
+      }
+
+      const currentDateStr = new Date().toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const generatedByStr = currentUser 
+        ? `${currentUser.name} (${currentUser.role.toUpperCase()})` 
+        : 'Principal Office Administrator';
+
+      // Orientation (Step 8)
+      const isLandscape = selectedColumns.length > 8;
+      const orientationCss = isLandscape 
+        ? `@page { size: landscape; margin: 10mm 10mm 10mm 10mm; }` 
+        : `@page { size: portrait; margin: 15mm 10mm 15mm 10mm; }`;
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Student Registry Report</title>
+            <style>
+              @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+              
+              body {
+                font-family: 'Inter', sans-serif;
+                color: #0f172a;
+                padding: 20px;
+                margin: 0;
+                background-color: #ffffff;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+              
+              ${orientationCss}
+
+              .header-container {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                border-bottom: 2px solid #1e3a8a;
+                padding-bottom: 12px;
+                margin-bottom: 16px;
+              }
+
+              .school-title {
+                font-size: 20px;
+                font-weight: 800;
+                color: #1e3a8a;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin: 0;
+              }
+
+              .report-subtitle {
+                font-size: 13px;
+                font-weight: 600;
+                color: #475569;
+                margin: 4px 0 0 0;
+              }
+
+              .meta-box {
+                font-size: 11px;
+                color: #475569;
+                text-align: right;
+                line-height: 1.4;
+              }
+
+              .filter-bar {
+                background-color: #f1f5f9;
+                border: 1px solid #e2e8f0;
+                padding: 8px 12px;
+                border-radius: 6px;
+                margin-bottom: 16px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 11px;
+                font-weight: 600;
+                color: #334155;
+              }
+
+              .filter-title {
+                color: #64748b;
+                font-weight: 500;
+                margin-right: 4px;
+              }
+
+              .filter-value {
+                color: #0f172a;
+                font-weight: 700;
+              }
+
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 10px;
+                margin-bottom: 24px;
+              }
+
+              th {
+                background-color: #1e3a8a;
+                color: #ffffff;
+                font-weight: 700;
+                text-align: left;
+                padding: 10px 8px;
+                border: 1px solid #1e3a8a;
+                text-transform: uppercase;
+                font-size: 9px;
+                letter-spacing: 0.3px;
+                white-space: nowrap;
+              }
+
+              td {
+                padding: 8px;
+                border: 1px solid #e2e8f0;
+                color: #334155;
+                vertical-align: middle;
+              }
+
+              tr:nth-child(even) {
+                background-color: #f8fafc;
+              }
+
+              .footer-container {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                display: flex;
+                justify-content: space-between;
+                font-size: 9px;
+                color: #94a3b8;
+                border-top: 1px solid #e2e8f0;
+                padding-top: 10px;
+                background-color: #ffffff;
+              }
+
+              .no-print-btn {
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                background-color: #1e3a8a;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                font-size: 11px;
+                font-weight: bold;
+                border-radius: 20px;
+                cursor: pointer;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                z-index: 9999;
+              }
+
+              .no-print-btn:hover {
+                background-color: #1d4ed8;
+                transform: translateY(-1px);
+              }
+
+              @media print {
+                body {
+                  padding-bottom: 40px;
+                }
+                .no-print-btn {
+                  display: none;
+                }
+                .footer-container {
+                  position: running(footer);
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <button class="no-print-btn" onclick="window.print()">
+              Print report / Save as PDF
+            </button>
+
+            <div class="header-container">
+              <div>
+                <h1 class="school-title">The School of Pansy Flowers</h1>
+                <h2 class="report-subtitle">Student Registry Report</h2>
+              </div>
+              <div class="meta-box">
+                <div><strong>Generated On:</strong> ${currentDateStr}</div>
+                <div><strong>Generated By:</strong> ${generatedByStr}</div>
+              </div>
+            </div>
+
+            <div class="filter-bar">
+              <div>
+                <span class="filter-title">Active Filters:</span>
+                <span class="filter-value">${filtersStr}</span>
+              </div>
+              <div>
+                <span class="filter-title">Total Students:</span>
+                <span class="filter-value">${studentsToExport.length}</span>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  ${headers.map(h => `<th>${h}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(row => `
+                  <tr>
+                    ${row.map(val => `<td>${val === null || val === undefined ? '' : val}</td>`).join('')}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div class="footer-container">
+              <span>The School of Pansy Flowers ERP System • Student Registry Audit</span>
+              <span>Page 1 of 1</span>
+            </div>
+
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                }, 500);
+              }
+            </script>
+          </body>
+        </html>
+      `;
+
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      
+      setIsStudentReportModalOpen(false);
+    } catch (err) {
+      console.error("Error generating student report:", err);
+      alert("An error occurred while preparing the student registry report.");
+    } finally {
+      setReportLoading(false);
+    }
   };
 
   const handleExportTeachersExcel = () => {
@@ -2674,7 +3085,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                                   <Edit2 size={13} />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteFeeStructureClick(fs._id)}
+                                  onClick={() => handleDeleteFeeStructureClick(fs.id)}
                                   className="p-1 px-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                                   title="Delete Policy"
                                 >
@@ -2816,13 +3227,15 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
       )}
 
       {/* --- CORE TRANSPORT PANEL TAB --- */}
-      {currentTab === 'transport' && (
+      {['transport', 'transport-students', 'transport-fee-collection', 'transport-payment-history', 'transport-dashboard'].includes(currentTab) && (
         <TransportPanel 
           allStudents={students} 
           refreshTrigger={refreshTrigger} 
           triggerDataRefresh={triggerDataRefresh}
           assignStudentIdPreset={usesTransportPresetStudentId}
           onClearPreset={() => setUsesTransportPresetStudentId(null)}
+          activeSubTab={currentTab === 'transport' ? 'transport-students' : currentTab}
+          setActiveSubTab={setCurrentTab}
         />
       )}
 
@@ -2838,6 +3251,116 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
       {/* =========================================
                      MODALS FORM POPUPS
          ========================================= */}
+
+      {/* CUSTOM STUDENT PRINT / PDF REPORT GENERATION MODAL */}
+      <Modal
+        isOpen={isStudentReportModalOpen}
+        onClose={() => setIsStudentReportModalOpen(false)}
+        title="Generate Student Report"
+        footer={
+          <div className="flex gap-2 w-full sm:w-auto justify-end">
+            <Button variant="outline" size="sm" onClick={() => setIsStudentReportModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => handleGenerateStudentReport(true)}
+              isLoading={reportLoading}
+            >
+              <Printer size={14} className="mr-1 text-slate-500 inline" /> Print Directly
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => handleGenerateStudentReport(false)}
+              isLoading={reportLoading}
+            >
+              <FileText size={14} className="mr-1 text-white inline" /> Generate PDF
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-6 select-none max-h-[70vh] overflow-y-auto pr-2">
+          {/* Top Utility Buttons */}
+          <div className="flex flex-wrap gap-2 pb-3 border-b border-slate-100">
+            <button
+              onClick={() => {
+                const allCols = REPORT_COLUMNS.map(c => c.id);
+                setSelectedColumns(allCols);
+                localStorage.setItem(LOCAL_STORAGE_REPORT_COLS_KEY, JSON.stringify(allCols));
+              }}
+              className="text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
+            >
+              Select All
+            </button>
+            <button
+              onClick={() => {
+                setSelectedColumns([]);
+                localStorage.setItem(LOCAL_STORAGE_REPORT_COLS_KEY, JSON.stringify([]));
+              }}
+              className="text-[11px] font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
+            >
+              Clear Selection
+            </button>
+            <button
+              onClick={() => {
+                setSelectedColumns(DEFAULT_REPORT_COLUMNS);
+                localStorage.setItem(LOCAL_STORAGE_REPORT_COLS_KEY, JSON.stringify(DEFAULT_REPORT_COLUMNS));
+              }}
+              className="text-[11px] font-bold text-slate-600 hover:text-slate-800 border border-slate-200 hover:bg-slate-50 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
+            >
+              Reset to Default
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Customize the columns of your professional ERP Student Registry Report. Every selected field will become its own individual column. Portrait layout is applied for 1–8 selected columns; landscape is automatically selected for more than 8 columns.
+          </p>
+
+          {/* Grouped Checkboxes Grid */}
+          <div className="space-y-5">
+            {(['Basic Information', 'Personal Information', 'Parent Information', 'Government IDs', 'Address', 'Fee Information', 'Transport'] as const).map(category => {
+              const categoryCols = REPORT_COLUMNS.filter(col => col.category === category);
+              return (
+                <div key={category} className="space-y-2">
+                  <h4 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-1 tracking-wide uppercase">
+                    {category}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {categoryCols.map(col => {
+                      const isSelected = selectedColumns.includes(col.id);
+                      return (
+                        <label
+                          key={col.id}
+                          className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-blue-50/50 border-blue-200 text-blue-900 shadow-2xs'
+                              : 'bg-white border-slate-100 text-slate-600 hover:bg-slate-50 hover:border-slate-200'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              const updated = isSelected
+                                ? selectedColumns.filter(c => c !== col.id)
+                                : [...selectedColumns, col.id];
+                              setSelectedColumns(updated);
+                              localStorage.setItem(LOCAL_STORAGE_REPORT_COLS_KEY, JSON.stringify(updated));
+                            }}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                          <span>{col.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Modal>
 
       {/* 0. VIEW STUDENT PROFILE DETAILS MODAL */}
       <Modal

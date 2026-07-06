@@ -16,7 +16,7 @@ To toggle the application from local in-memory mock storage to a live API server
    VITE_API_URL="https://your-backend-api.com/api"
    ```
 
-All Axios request configurations will automatically include the JWT token in the Authorization header once authentication succeeds: `Authorization: <JWT token>` (no `Bearer ` prefix).
+All Axios request configurations will automatically include the Bearer Token header once authentication succeeds: `Authorization: Bearer <token>`.
 
 ---
 
