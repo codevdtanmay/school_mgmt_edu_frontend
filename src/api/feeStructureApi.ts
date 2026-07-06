@@ -53,6 +53,7 @@ export const feeStructureApi = {
 
   deleteFeeStructure: async (id: string): Promise<void> => {
     try {
+      console.log("API DELETE ID:", id);
       await axiosInstance.delete(`/fee-structures/${id}`);
     } catch (e) {
       console.warn('Backend fee structure deletion failed or missing endpoint:', e);

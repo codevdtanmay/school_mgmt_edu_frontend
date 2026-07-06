@@ -135,7 +135,7 @@ Returns dynamic charts summaries in high performance.
 
 - **URL:** `/api/dashboard/fees`
 - **Method:** `GET`
-- **Headers:** `Authorization: Bearer <token>`
+- **Headers:** `Authorization: <JWT token>` (no `Bearer ` prefix)
 - **Response Shape:**
 ```json
 {

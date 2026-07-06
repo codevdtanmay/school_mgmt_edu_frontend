@@ -768,8 +768,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteFeeStructureClick = async (id: string) => {
+     console.log("BUTTON DELETE ID:", id);
     if (confirm('Are you sure you want to delete this fee structure?')) {
       try {
+
         await feeStructureApi.deleteFeeStructure(id);
         triggerDataRefresh();
       } catch (err) {
@@ -2672,7 +2674,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                                   <Edit2 size={13} />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteFeeStructureClick(fs.id)}
+                                  onClick={() => handleDeleteFeeStructureClick(fs._id)}
                                   className="p-1 px-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                                   title="Delete Policy"
                                 >
