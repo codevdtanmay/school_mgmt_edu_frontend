@@ -12,46 +12,21 @@ export interface FeeHistoryItem {
   date: string;
 }
 
-const LOCAL_STORAGE_KEY = 'school_fee_history_records';
-
-const MOCK_FEE_HISTORY: FeeHistoryItem[] = [];
-
-const getLocalFeeHistory = (): FeeHistoryItem[] => {
-  const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-  if (!stored) {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(MOCK_FEE_HISTORY));
-    return MOCK_FEE_HISTORY;
-  }
-  try {
-    return JSON.parse(stored);
-  } catch (e) {
-    return MOCK_FEE_HISTORY;
-  }
-};
-
-const setLocalFeeHistory = (list: FeeHistoryItem[]) => {
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
-};
-
 const mapPaymentResponse = (p: any): FeeHistoryItem => {
   const s = p.studentId || {};
-  const isStudentPopulated = s && typeof s === 'object';
-  const isUserPopulated = s.userId && typeof s.userId === 'object';
-  
-  const resolvedName = isUserPopulated ? s.userId.name : (p.studentName || p.name || '');
-  const resolvedAdmissionNo = isStudentPopulated ? s.admissionNo : (p.admissionNo || '');
-  const resolvedClassName = isStudentPopulated ? `${s.class || ''}-${s.section || ''}` : (p.className || '');
-  
+
   return {
     id: p._id || p.id,
-    receiptNo: p.receiptNo || '',
-    studentId: isStudentPopulated ? (s._id || s.id || p.studentId) : p.studentId,
-    name: resolvedName,
-    admissionNo: resolvedAdmissionNo,
-    className: resolvedClassName,
-    amount: p.amount != null ? Number(p.amount) : 0,
-    paymentMethod: p.paymentMethod || 'Cash',
-    date: p.paymentDate || p.date || ''
+    receiptNo: p.receiptNo,
+    studentId: s._id || s.id || p.studentId,
+    name: s.userId?.name || p.studentName || p.name,
+    admissionNo: s.admissionNo || p.admissionNo,
+    className: s.class
+      ? `${s.class}-${s.section}`
+      : p.className,
+    amount: Number(p.amount),
+    paymentMethod: p.paymentMethod,
+    date: p.paymentDate || p.date
   };
 };
 
@@ -62,133 +37,74 @@ export const feeApi = {
     paymentMethod?: string;
     studentId?: string;
   }) => {
-    try {
-      let historyList: any[] = [];
-      let totalCol = 0;
-      let totalPay = 0;
+    let historyList: any[] = [];
+    let totalCollection = 0;
+    let totalPayments = 0;
 
-      if (params?.studentId) {
-        // Fetch specific student payment history using backend endpoint: GET /fees/student/:id/history
-        const response = await axiosInstance.get(`/fees/student/${params.studentId}/history`);
-        const data = response.data;
-        if (data && Array.isArray(data.history)) {
-          historyList = data.history.map((h: any) => ({
-            ...h,
-            studentName: data.studentName,
-            admissionNo: data.admissionNo
-          }));
-        }
-      } else {
-        // Fetch monthly fee report using backend endpoint: GET /fees/monthly-report
-        const monthMap: Record<string, number> = {
-          'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-          'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
-        };
-        
-        let monthNum = new Date().getMonth() + 1;
-        let yearNum = new Date().getFullYear();
+    if (params?.studentId) {
+      const response = await axiosInstance.get(
+        `/fees/student/${params.studentId}/history`
+      );
 
-        if (params?.month && params.month !== 'All') {
-          if (typeof params.month === 'number') {
-            monthNum = params.month;
-          } else if (typeof params.month === 'string' && monthMap[params.month]) {
-            monthNum = monthMap[params.month];
-          } else if (!isNaN(Number(params.month))) {
-            monthNum = Number(params.month);
-          }
-        }
-        
-        if (params?.year && params.year !== 'All') {
-          yearNum = Number(params.year);
-        }
+      const data = response.data;
 
-        const response = await axiosInstance.get('/fees/monthly-report', {
-          params: { month: monthNum, year: yearNum }
-        });
-        const data = response.data;
-        if (data && Array.isArray(data.payments)) {
-          historyList = data.payments;
-          totalCol = data.totalCollection || 0;
-          totalPay = data.totalTransactions || 0;
-        }
-      }
-
-      // Filter by paymentMethod if specified
-      if (params?.paymentMethod && params.paymentMethod !== 'All') {
-        historyList = historyList.filter(h => h.paymentMethod === params.paymentMethod);
-      }
-
-      const mappedHistory = historyList.map(mapPaymentResponse);
-      const computedCollection = totalCol || mappedHistory.reduce((sum, item) => sum + item.amount, 0);
-      const computedPayments = totalPay || mappedHistory.length;
-
-      return {
-        history: mappedHistory,
-        totalCollection: computedCollection,
-        totalPayments: computedPayments
+      historyList = (data.history || []).map((item: any) => ({
+        ...item,
+        studentName: data.studentName,
+        admissionNo: data.admissionNo
+      }));
+    } else {
+      const monthMap: Record<string, number> = {
+        January: 1,
+        February: 2,
+        March: 3,
+        April: 4,
+        May: 5,
+        June: 6,
+        July: 7,
+        August: 8,
+        September: 9,
+        October: 10,
+        November: 11,
+        December: 12
       };
-    } catch (e) {
-      console.warn('Backend fee history query failed. Using local storage.', e);
-      let list = getLocalFeeHistory();
 
-      if (params) {
-        if (params.studentId) {
-          list = list.filter(item => item.studentId === params.studentId);
-        }
-        if (params.paymentMethod && params.paymentMethod !== 'All') {
-          list = list.filter(item => item.paymentMethod.toLowerCase() === params.paymentMethod?.toLowerCase());
-        }
-        if (params.month && params.month !== 'All') {
-          const monthMap: Record<string, number> = {
-            'January': 0, 'February': 1, 'March': 2, 'April': 3, 'May': 4, 'June': 5,
-            'July': 6, 'August': 7, 'September': 8, 'October': 9, 'November': 10, 'December': 11
-          };
-          
-          let monthIndex = -1;
-          if (typeof params.month === 'number') {
-            monthIndex = params.month - 1;
-          } else if (typeof params.month === 'string') {
-            if (monthMap[params.month] !== undefined) {
-              monthIndex = monthMap[params.month];
-            } else {
-              monthIndex = parseInt(params.month) - 1;
-            }
-          }
-
-          if (monthIndex >= 0 && monthIndex < 12) {
-            list = list.filter(item => {
-              const d = new Date(item.date);
-              return d.getMonth() === monthIndex;
-            });
+      const response = await axiosInstance.get(
+        '/fees/monthly-report',
+        {
+          params: {
+            month:
+              typeof params?.month === 'string'
+                ? monthMap[params.month] || Number(params.month)
+                : params?.month,
+            year: params?.year
           }
         }
-        if (params.year && params.year !== 'All') {
-          list = list.filter(item => {
-            const d = new Date(item.date);
-            return d.getFullYear() === Number(params.year);
-          });
-        }
-      }
+      );
 
-      const totalCollection = list.reduce((acc, item) => acc + item.amount, 0);
-      return {
-        history: list,
-        totalCollection,
-        totalPayments: list.length
-      };
+      historyList = response.data.payments || [];
+      totalCollection = response.data.totalCollection || 0;
+      totalPayments = response.data.totalTransactions || 0;
     }
-  },
 
-  addLocalPayment: (payment: Omit<FeeHistoryItem, 'id' | 'receiptNo' | 'date'>) => {
-    const list = getLocalFeeHistory();
-    const newPayment: FeeHistoryItem = {
-      id: `pay-${Date.now()}`,
-      receiptNo: `REC-000${list.length + 13}`,
-      date: new Date().toISOString().split('T')[0],
-      ...payment
+    if (
+      params?.paymentMethod &&
+      params.paymentMethod !== 'All'
+    ) {
+      historyList = historyList.filter(
+        (item) => item.paymentMethod === params.paymentMethod
+      );
+    }
+
+    const history = historyList.map(mapPaymentResponse);
+
+    return {
+      history,
+      totalCollection:
+        totalCollection ||
+        history.reduce((sum, item) => sum + item.amount, 0),
+      totalPayments:
+        totalPayments || history.length
     };
-    list.unshift(newPayment);
-    setLocalFeeHistory(list);
-    return newPayment;
   }
 };

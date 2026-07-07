@@ -88,7 +88,7 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
   const classesList = [
     'Nursery', 'LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'
   ];
-  const standardRoutes = ['Route 1', 'Route 2', 'Route 3', 'Route 4'];
+  const standardRoutes = ['Ugli', 'Lamta', 'Gudru', 'Ghunadi'];
   const monthsList = [
     'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'
   ];
