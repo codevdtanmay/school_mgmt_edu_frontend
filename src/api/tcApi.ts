@@ -24,50 +24,7 @@ export interface TransferCertificate {
 
 const LOCAL_STORAGE_KEY = 'school_transfer_certificates_list';
 
-const MOCK_TCS: TransferCertificate[] = [
-  {
-    id: 'tc-1',
-    tcNumber: 'TC-2026-0001',
-    studentId: 's-1',
-    name: 'Rahul Kumar',
-    admissionNo: 'ADM2026001',
-    fatherName: 'Sanjay Kumar',
-    motherName: 'Meena Devi',
-    className: '10th Class',
-    section: 'A',
-    joiningDate: '2022-04-05',
-    category: 'OBC',
-    reason: 'Higher Education',
-    lastAttendanceDate: '2026-05-15',
-    conduct: 'Excellent',
-    promotedTo: 'Class 11',
-    remarks: 'A disciplined and bright student throughout the tenure.',
-    issuedBy: 'Principal',
-    issueDate: '2026-06-15',
-    status: 'Issued'
-  },
-  {
-    id: 'tc-2',
-    tcNumber: 'TC-2026-0002',
-    studentId: 's-2',
-    name: 'Priya Singh',
-    admissionNo: 'ADM2026002',
-    fatherName: 'Rajesh Singh',
-    motherName: 'Kiran Singh',
-    className: '9th Class',
-    section: 'B',
-    joiningDate: '2023-04-10',
-    category: 'General',
-    reason: 'Parent Request',
-    lastAttendanceDate: '2026-04-30',
-    conduct: 'Very Good',
-    promotedTo: 'Class 10',
-    remarks: 'Requested transfer due to parent relocation.',
-    issuedBy: 'Principal',
-    issueDate: '2026-05-20',
-    status: 'Cancelled'
-  }
-];
+const MOCK_TCS: TransferCertificate[] = [];
 
 const getLocalTCs = (): TransferCertificate[] => {
   const stored = localStorage.getItem(LOCAL_STORAGE_KEY);

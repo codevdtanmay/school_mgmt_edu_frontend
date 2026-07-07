@@ -41,6 +41,7 @@ import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
+import { formatDate } from '../../utils/dateFormatter';
 
 interface TransportPanelProps {
   allStudents: Student[];
@@ -391,7 +392,7 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
     
     const formattedList = processedPayments.map(p => ({
       ...p,
-      date: new Date(p.date).toLocaleDateString('en-GB')
+      date: formatDate(p.date)
     }));
 
     exportToExcel(formattedList, headers, keys, `Transport_Payments_Audit_${new Date().toISOString().split('T')[0]}`);
@@ -406,7 +407,7 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
       `${p.month} ${p.year}`,
       `₹${p.amount}`,
       p.paymentMethod,
-      new Date(p.date).toLocaleDateString('en-GB')
+      formatDate(p.date)
     ]);
 
     exportToPrintablePDF('Transport Fee Collection Ledgers & Receipts history', headers, rows, 'transport_payments_report');
@@ -591,13 +592,7 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
       alert('Please allow popups to print receipts.');
       return;
     }
-    const dateStr = new Date(receipt.date).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const dateStr = formatDate(receipt.date);
     
     const html = `
       <!DOCTYPE html>
@@ -842,7 +837,7 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
 
     const formatted = reportRoster.map(item => {
       if (item.date) {
-        return { ...item, date: new Date(item.date).toLocaleDateString('en-GB') };
+        return { ...item, date: formatDate(item.date) };
       }
       return item;
     });
@@ -862,7 +857,7 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
         item.admissionNo,
         item.routeName,
         `₹${item.amount}`,
-        new Date(item.date).toLocaleDateString('en-GB')
+        formatDate(item.date)
       ]);
       titleStr = `Monthly Transport Collection Report: ${repMonth} ${repYear}`;
     } else if (reportType === 'pending') {
@@ -890,7 +885,7 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
         `${item.month} ${item.year}`,
         `₹${item.amount}`,
         item.paymentMethod,
-        new Date(item.date).toLocaleDateString('en-GB')
+        formatDate(item.date)
       ]);
       titleStr = `Individual Student Payment History Ledger`;
     }
@@ -1239,7 +1234,7 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
                               <td className="p-3 text-slate-500">{item.routeName}</td>
                               <td className="p-3 font-bold text-slate-800">₹{item.amount}</td>
                               <td className="p-3 text-slate-400 font-medium">
-                                {new Date(item.date).toLocaleDateString('en-GB')}
+                                {formatDate(item.date)}
                               </td>
                             </>
                           )}
@@ -1266,7 +1261,7 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
                               <td className="p-3 font-extrabold text-slate-850">₹{item.amount}</td>
                               <td className="p-3 text-slate-500 font-bold">{item.paymentMethod}</td>
                               <td className="p-3 text-slate-400">
-                                {new Date(item.date).toLocaleDateString('en-GB')}
+                                {formatDate(item.date)}
                               </td>
                             </>
                           )}
@@ -1941,11 +1936,7 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
                           </span>
                         </td>
                         <td className="p-4 text-center text-slate-450 font-semibold">
-                          {new Date(p.date).toLocaleDateString('en-GB', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
+                          {formatDate(p.date)}
                         </td>
                         <td className="p-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
@@ -2230,7 +2221,7 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="font-semibold text-slate-400">Transaction Time</span>
                 <span className="font-extrabold text-slate-800">
-                  {new Date(activeReceipt.date).toLocaleString('en-GB')}
+                  {formatDate(activeReceipt.date)}
                 </span>
               </div>
               {activeReceipt.remarks && (

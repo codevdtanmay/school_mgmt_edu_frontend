@@ -3,6 +3,7 @@ import { Megaphone, Calendar, User, CornerDownRight } from 'lucide-react';
 import { Notice } from '../../types';
 import Badge from '../common/Badge';
 import Card from '../common/Card';
+import { formatDate } from '../../utils/dateFormatter';
 
 interface RecentNoticesProps {
   notices: Notice[];
@@ -70,7 +71,7 @@ export const RecentNotices: React.FC<RecentNoticesProps> = ({ notices, loading =
               <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold border-t border-slate-100 pt-2.5">
                 <div className="flex items-center gap-1">
                   <Calendar size={11} />
-                  <span>{notice.date}</span>
+                  <span>{formatDate(notice.date)}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <User size={11} />

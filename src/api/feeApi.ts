@@ -14,41 +14,7 @@ export interface FeeHistoryItem {
 
 const LOCAL_STORAGE_KEY = 'school_fee_history_records';
 
-const MOCK_FEE_HISTORY: FeeHistoryItem[] = [
-  {
-    id: 'f-1',
-    receiptNo: 'REC-00012',
-    studentId: 's-1',
-    name: 'Rahul Kumar',
-    admissionNo: 'ADM2026001',
-    className: '10th-A',
-    amount: 1000,
-    paymentMethod: 'Cash',
-    date: '2026-06-12'
-  },
-  {
-    id: 'f-2',
-    receiptNo: 'REC-00008',
-    studentId: 's-2',
-    name: 'Priya Singh',
-    admissionNo: 'ADM2026002',
-    className: '9th-B',
-    amount: 2800,
-    paymentMethod: 'UPI',
-    date: '2026-05-05'
-  },
-  {
-    id: 'f-3',
-    receiptNo: 'REC-00003',
-    studentId: 's-3',
-    name: 'Amit Sharma',
-    admissionNo: 'ADM2026003',
-    className: '8th-A',
-    amount: 1200,
-    paymentMethod: 'Bank Transfer',
-    date: '2026-04-10'
-  }
-];
+const MOCK_FEE_HISTORY: FeeHistoryItem[] = [];
 
 const getLocalFeeHistory = (): FeeHistoryItem[] => {
   const stored = localStorage.getItem(LOCAL_STORAGE_KEY);

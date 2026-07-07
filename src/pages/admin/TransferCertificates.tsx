@@ -29,6 +29,7 @@ import Badge from '../../components/common/Badge';
 import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import { SchoolLogo } from '../../components/common/SchoolLogo';
+import { formatDate } from '../../utils/dateFormatter';
 
 interface TransferCertificatesProps {
   students: Student[];
@@ -229,7 +230,11 @@ export const TransferCertificates: React.FC<TransferCertificatesProps> = ({
   const handleExportExcel = () => {
     const headers = ['TC Number', 'Student Name', 'Admission No', 'Class', 'Issue Date', 'Reason', 'Status'];
     const keys = ['tcNumber', 'name', 'admissionNo', 'className', 'issueDate', 'reason', 'status'];
-    exportToExcel(filteredTCs, headers, keys, `Transfer_Certificates_${new Date().toISOString().split('T')[0]}`);
+    const formattedData = filteredTCs.map(tc => ({
+      ...tc,
+      issueDate: formatDate(tc.issueDate)
+    }));
+    exportToExcel(formattedData, headers, keys, `Transfer_Certificates_${new Date().toISOString().split('T')[0]}`);
   };
 
   // Export to PDF handler
@@ -240,7 +245,7 @@ export const TransferCertificates: React.FC<TransferCertificatesProps> = ({
       tc.name,
       tc.admissionNo,
       tc.className,
-      tc.issueDate,
+      formatDate(tc.issueDate),
       tc.reason,
       tc.status
     ]);
@@ -442,7 +447,7 @@ export const TransferCertificates: React.FC<TransferCertificatesProps> = ({
 
             <div class="top-meta-row">
               <span>TC Number: <strong>${tc.tcNumber}</strong></span>
-              <span>Issue Date: <strong>${tc.issueDate}</strong></span>
+              <span>Issue Date: <strong>${formatDate(tc.issueDate)}</strong></span>
             </div>
 
             <div class="grid-list">
@@ -472,11 +477,11 @@ export const TransferCertificates: React.FC<TransferCertificatesProps> = ({
               </div>
               <div class="grid-row">
                 <span class="field-lbl">7. Admission Date in School:</span>
-                <span class="field-val">${tc.joiningDate}</span>
+                <span class="field-val">${formatDate(tc.joiningDate)}</span>
               </div>
               <div class="grid-row">
                 <span class="field-lbl">8. Last Attendance Date:</span>
-                <span class="field-val">${tc.lastAttendanceDate}</span>
+                <span class="field-val">${formatDate(tc.lastAttendanceDate)}</span>
               </div>
               <div class="grid-row">
                 <span class="field-lbl">9. Reason for leaving school:</span>
@@ -537,7 +542,7 @@ export const TransferCertificates: React.FC<TransferCertificatesProps> = ({
              Changotola, Balaghat, Madhya Pradesh, India
                         TRANSFER CERTIFICATE
 ================================================================================
-TC Number    : ${tc.tcNumber}                          Issue Date: ${tc.issueDate}
+TC Number    : ${tc.tcNumber}                          Issue Date: ${formatDate(tc.issueDate)}
 ================================================================================
 1. Name of Student                : ${tc.name}
 2. Admission Number               : ${tc.admissionNo}
@@ -545,8 +550,8 @@ TC Number    : ${tc.tcNumber}                          Issue Date: ${tc.issueDat
 4. Mother's Name                  : ${tc.motherName}
 5. Student Category               : ${tc.category}
 6. Class & Section                : ${tc.className} - ${tc.section}
-7. Date of Admission in School    : ${tc.joiningDate}
-8. Last Attendance Date           : ${tc.lastAttendanceDate}
+7. Date of Admission in School    : ${formatDate(tc.joiningDate)}
+8. Last Attendance Date           : ${formatDate(tc.lastAttendanceDate)}
 9. Reason for Leaving School      : ${tc.reason}
 10. General Conduct               : ${tc.conduct}
 11. Promoted to Class             : ${tc.promotedTo}
@@ -668,7 +673,7 @@ This is a computer-generated transfer certificate. Verified under school record 
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span>Issue Date:</span>
-                  <span className="text-slate-800">{viewingTC.issueDate}</span>
+                  <span className="text-slate-800">{formatDate(viewingTC.issueDate)}</span>
                 </div>
               </div>
 
@@ -707,12 +712,12 @@ This is a computer-generated transfer certificate. Verified under school record 
 
                 <div className="flex flex-col sm:flex-row sm:items-center border-b border-dashed border-slate-100 pb-2.5">
                   <span className="sm:w-60 text-[10px] text-slate-400 uppercase tracking-wider">7. Admission Date in School:</span>
-                  <span className="text-slate-800">{viewingTC.joiningDate}</span>
+                  <span className="text-slate-800">{formatDate(viewingTC.joiningDate)}</span>
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center border-b border-dashed border-slate-100 pb-2.5">
                   <span className="sm:w-60 text-[10px] text-slate-400 uppercase tracking-wider">8. Last Attendance Date:</span>
-                  <span className="text-slate-800">{viewingTC.lastAttendanceDate}</span>
+                  <span className="text-slate-800">{formatDate(viewingTC.lastAttendanceDate)}</span>
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center border-b border-dashed border-slate-100 pb-2.5">
@@ -987,7 +992,7 @@ This is a computer-generated transfer certificate. Verified under school record 
                     <td className="p-3.5 text-slate-900 font-extrabold uppercase">{tc.name}</td>
                     <td className="p-3.5 text-slate-500 font-mono">{tc.admissionNo}</td>
                     <td className="p-3.5 text-slate-500">{tc.className}</td>
-                    <td className="p-3.5 text-slate-550">{tc.issueDate}</td>
+                    <td className="p-3.5 text-slate-550">{formatDate(tc.issueDate)}</td>
                     <td className="p-3.5 text-slate-450 font-medium">{tc.reason}</td>
                     <td className="p-3.5">
                       <Badge 

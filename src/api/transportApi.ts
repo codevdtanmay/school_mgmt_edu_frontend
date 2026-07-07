@@ -3,47 +3,7 @@ import { Transport } from '../types';
 
 const LOCAL_STORAGE_KEY = 'school_transport_records';
 
-const MOCK_TRANSPORTS: Transport[] = [
-  {
-    id: 't-1',
-    studentId: 's-1',
-    name: 'Rahul Kumar',
-    email: 'rahul@example.com',
-    admissionNo: 'ADM2026001',
-    className: '10th-A',
-    routeName: 'Route 1',
-    pickupPoint: 'Main Gate',
-    monthlyCharge: 1200,
-    joiningDate: '2026-04-15',
-    status: 'Active'
-  },
-  {
-    id: 't-2',
-    studentId: 's-2',
-    name: 'Priya Singh',
-    email: 'priya@example.com',
-    admissionNo: 'ADM2026002',
-    className: '9th-B',
-    routeName: 'Route 2',
-    pickupPoint: 'Sector 15 Circle',
-    monthlyCharge: 1500,
-    joiningDate: '2026-05-10',
-    status: 'Active'
-  },
-  {
-    id: 't-3',
-    studentId: 's-3',
-    name: 'Amit Sharma',
-    email: 'amit@example.com',
-    admissionNo: 'ADM2026003',
-    className: '8th-A',
-    routeName: 'Route 1',
-    pickupPoint: 'Town Hall',
-    monthlyCharge: 1200,
-    joiningDate: '2026-06-01',
-    status: 'Inactive'
-  }
-];
+const MOCK_TRANSPORTS: Transport[] = [];
 
 const getLocalTransports = (): Transport[] => {
   const stored = localStorage.getItem(LOCAL_STORAGE_KEY);

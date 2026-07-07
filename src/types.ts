@@ -54,6 +54,13 @@ export interface Student {
     state: string;
     pincode: string;
   };
+  bankDetails?: {
+    accountHolderName?: string;
+    bankName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    branchName?: string;
+  };
 }
 
 export interface Teacher {

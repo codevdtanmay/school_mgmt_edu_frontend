@@ -2,6 +2,7 @@ import React from 'react';
 import { Activity as SystemActivity } from '../../types';
 import { UserPlus, Megaphone, DollarSign, UserCheck, CalendarDays, Activity } from 'lucide-react';
 import Card from '../common/Card';
+import { formatDate } from '../../utils/dateFormatter';
 
 interface RecentActivitiesProps {
   activities: SystemActivity[];
@@ -88,7 +89,7 @@ export const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities, 
                       </span>
                       <span className="h-1 w-1 bg-slate-200 rounded-full" />
                       <span className="text-[10px] text-blue-500 font-semibold uppercase tracking-wider">
-                        {act.time}
+                        {formatDate(act.time)}
                       </span>
                     </div>
                   </div>

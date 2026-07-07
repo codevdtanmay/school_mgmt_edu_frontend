@@ -79,6 +79,19 @@ const mapStudentResponse = (s: any): Student => {
       district: '',
       state: '',
       pincode: ''
+    },
+    bankDetails: s.bankDetails ? {
+      accountHolderName: s.bankDetails.accountHolderName || '',
+      bankName: s.bankDetails.bankName || '',
+      accountNumber: s.bankDetails.accountNumber || '',
+      ifscCode: s.bankDetails.ifscCode || '',
+      branchName: s.bankDetails.branchName || ''
+    } : {
+      accountHolderName: '',
+      bankName: '',
+      accountNumber: '',
+      ifscCode: '',
+      branchName: ''
     }
   };
 };
@@ -169,10 +182,10 @@ export const studentApi = {
         return counts;
       } catch (err) {
         return {
-          Foundation: 1,
-          Primary: 2,
-          'Middle School': 1,
-          Secondary: 2
+          Foundation: 0,
+          Primary: 0,
+          'Middle School': 0,
+          Secondary: 0
         };
       }
     }
@@ -192,12 +205,12 @@ export const studentApi = {
       }
       return data;
     } catch (e) {
-      // Degrade gracefully
+      // Degrade gracefully with no mock numbers
       return {
-        collected: 285200,
-        pending: 42300,
-        overdue: 12500,
-        monthlyTarget: 340000,
+        collected: 0,
+        pending: 0,
+        overdue: 0,
+        monthlyTarget: 0,
       };
     }
   },

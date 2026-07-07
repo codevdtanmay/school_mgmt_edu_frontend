@@ -31,6 +31,7 @@ import {
 
 // Export Utilities
 import { exportToExcel, exportToPrintablePDF, printReceiptBill } from '../../utils/exportUtils';
+import { formatDate } from '../../utils/dateFormatter';
 
 // Common Components
 import Card from '../../components/common/Card';
@@ -72,7 +73,7 @@ interface AdminDashboardProps {
 interface ReportColumn {
   id: string;
   label: string;
-  category: 'Basic Information' | 'Personal Information' | 'Parent Information' | 'Government IDs' | 'Address' | 'Fee Information' | 'Transport';
+  category: 'Basic Information' | 'Personal Information' | 'Parent Information' | 'Government IDs' | 'Address' | 'Fee Information' | 'Transport' | 'Bank Details';
 }
 
 const REPORT_COLUMNS: ReportColumn[] = [
@@ -115,7 +116,14 @@ const REPORT_COLUMNS: ReportColumn[] = [
   { id: 'status', label: 'Fee Status', category: 'Fee Information' },
   
   // Transport
-  { id: 'usesTransport', label: 'Uses Transport', category: 'Transport' }
+  { id: 'usesTransport', label: 'Uses Transport', category: 'Transport' },
+
+  // Bank Details
+  { id: 'bankAccountHolderName', label: 'Account Holder Name', category: 'Bank Details' },
+  { id: 'bankName', label: 'Bank Name', category: 'Bank Details' },
+  { id: 'bankAccountNumber', label: 'Account Number', category: 'Bank Details' },
+  { id: 'bankIfscCode', label: 'IFSC Code', category: 'Bank Details' },
+  { id: 'bankBranchName', label: 'Branch Name', category: 'Bank Details' }
 ];
 
 const DEFAULT_REPORT_COLUMNS = ['name', 'admissionNo', 'class', 'section', 'rollNo'];
@@ -296,6 +304,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       district: '',
       state: '',
       pincode: ''
+    },
+    bankDetails: {
+      accountHolderName: '',
+      bankName: '',
+      accountNumber: '',
+      ifscCode: '',
+      branchName: ''
     }
   });
   
@@ -502,6 +517,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         district: stu.address?.district || '',
         state: stu.address?.state || '',
         pincode: stu.address?.pincode || ''
+      },
+      bankDetails: {
+        accountHolderName: stu.bankDetails?.accountHolderName || '',
+        bankName: stu.bankDetails?.bankName || '',
+        accountNumber: stu.bankDetails?.accountNumber || '',
+        ifscCode: stu.bankDetails?.ifscCode || '',
+        branchName: stu.bankDetails?.branchName || ''
       }
     });
     setIsStudentModalOpen(true);
@@ -640,6 +662,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           district: '',
           state: '',
           pincode: ''
+        },
+        bankDetails: {
+          accountHolderName: '',
+          bankName: '',
+          accountNumber: '',
+          ifscCode: '',
+          branchName: ''
         }
       });
       triggerDataRefresh();
@@ -856,16 +885,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'ID', 'Name', 'Email', 'Admission No', 'Class', 'Section', 'Roll No', 
       'Gender', 'Date of Birth', 'Joining Date', 'Category', 'Phone', 
       'Father Name', 'Mother Name', 'Aadhaar No', 'Samagra ID', 'APAAR ID', 'PAN No',
-      'Village', 'Post Office', 'Tehsil', 'District', 'State', 'Pincode'
+      'Village', 'Post Office', 'Tehsil', 'District', 'State', 'Pincode',
+      'Account Holder Name', 'Bank Name', 'Account Number', 'IFSC Code', 'Branch Name'
     ];
     const keys = [
       'id', 'name', 'email', 'admissionNo', 'class', 'section', 'rollNo',
       'gender', 'dateOfBirth', 'joiningDate', 'category', 'phone',
       'fatherName', 'motherName', 'aadharNo', 'samagraId', 'apaarId', 'panNo',
-      'village', 'postOffice', 'tehsil', 'district', 'state', 'pincode'
+      'village', 'postOffice', 'tehsil', 'district', 'state', 'pincode',
+      'bankAccountHolderName', 'bankName', 'bankAccountNumber', 'bankIfscCode', 'bankBranchName'
     ];
     const dataToExport = filteredStudents.map(student => ({
       ...student,
+      dateOfBirth: formatDate(student.dateOfBirth),
+      joiningDate: formatDate(student.joiningDate),
       admissionNo: student.admissionNo || student.rollNumber || '',
       class: student.class || 'Nursery',
       section: student.section || 'A',
@@ -877,7 +910,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       tehsil: student.address?.tehsil || '',
       district: student.address?.district || '',
       state: student.address?.state || '',
-      pincode: student.address?.pincode || ''
+      pincode: student.address?.pincode || '',
+      bankAccountHolderName: student.bankDetails?.accountHolderName || '',
+      bankName: student.bankDetails?.bankName || '',
+      bankAccountNumber: student.bankDetails?.accountNumber || '',
+      bankIfscCode: student.bankDetails?.ifscCode || '',
+      bankBranchName: student.bankDetails?.branchName || ''
     }));
     exportToExcel(dataToExport, headers, keys, `Students_Roster_${new Date().toISOString().split('T')[0]}`);
   };
@@ -890,8 +928,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       case 'section': return student.section || '';
       case 'rollNo': return student.rollNo != null ? String(student.rollNo) : '';
       case 'gender': return student.gender || '';
-      case 'dateOfBirth': return student.dateOfBirth || '';
-      case 'joiningDate': return student.joiningDate || student.admissionDate || '';
+      case 'dateOfBirth': return formatDate(student.dateOfBirth);
+      case 'joiningDate': return formatDate(student.joiningDate || student.admissionDate);
       case 'category': return student.category || '';
       case 'fatherName': return student.fatherName || '';
       case 'motherName': return student.motherName || '';
@@ -914,12 +952,205 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const hasTransport = (transportsList || []).some(t => t.studentId === student.id || (student.admissionNo && t.admissionNo === student.admissionNo));
         return hasTransport ? 'Yes' : 'No';
       }
+      case 'bankAccountHolderName': return student.bankDetails?.accountHolderName || '';
+      case 'bankName': return student.bankDetails?.bankName || '';
+      case 'bankAccountNumber': return student.bankDetails?.accountNumber || '';
+      case 'bankIfscCode': return student.bankDetails?.ifscCode || '';
+      case 'bankBranchName': return student.bankDetails?.branchName || '';
       default: return '';
     }
   };
 
   const handleExportStudentsPDF = () => {
     setIsStudentReportModalOpen(true);
+  };
+
+  const handlePrintStudentProfile = (student: Student) => {
+    const isBankEmpty = !student.bankDetails || (
+      !student.bankDetails.accountHolderName &&
+      !student.bankDetails.bankName &&
+      !student.bankDetails.accountNumber &&
+      !student.bankDetails.ifscCode &&
+      !student.bankDetails.branchName
+    );
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Student Profile: ${student.name}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            body {
+              font-family: 'Inter', sans-serif;
+              color: #0f172a;
+              padding: 40px;
+              margin: 0;
+              background-color: #ffffff;
+              line-height: 1.5;
+            }
+            .header {
+              display: flex;
+              align-items: center;
+              border-bottom: 2px solid #e2e8f0;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header-info {
+              margin-left: 10px;
+            }
+            .school-title {
+              font-size: 10px;
+              font-weight: 800;
+              color: #3b82f6;
+              text-transform: uppercase;
+              letter-spacing: 0.15em;
+            }
+            .student-name {
+              font-size: 24px;
+              font-weight: 800;
+              margin: 5px 0;
+            }
+            .student-meta {
+              font-size: 12px;
+              color: #64748b;
+              font-weight: 600;
+            }
+            .section {
+              margin-bottom: 25px;
+            }
+            .section-title {
+              font-size: 11px;
+              font-weight: 800;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.1em;
+              border-bottom: 1px dashed #cbd5e1;
+              padding-bottom: 5px;
+              margin-bottom: 12px;
+            }
+            .grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 15px;
+            }
+            .field {
+              font-size: 12px;
+              display: flex;
+              justify-content: space-between;
+              border-bottom: 1px solid #f1f5f9;
+              padding-bottom: 4px;
+            }
+            .label {
+              color: #64748b;
+              font-weight: 500;
+            }
+            .value {
+              color: #0f172a;
+              font-weight: 700;
+            }
+            .print-btn {
+              position: fixed;
+              bottom: 20px;
+              right: 20px;
+              background-color: #2563eb;
+              color: white;
+              border: none;
+              padding: 10px 18px;
+              border-radius: 8px;
+              font-weight: 600;
+              font-size: 12px;
+              cursor: pointer;
+              box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            }
+            .print-btn:hover {
+              background-color: #1d4ed8;
+            }
+            @media print {
+              .print-btn { display: none !important; }
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <button class="print-btn" onclick="window.print()">Print Profile</button>
+          
+          <div class="header">
+            <div class="header-info">
+              <div class="school-title">Official Student Registry Dossier</div>
+              <div class="student-name">${student.name}</div>
+              <div class="student-meta">Class ${student.class || 'N/A'} ${student.section ? `- ${student.section}` : ''} | Admission No: ${student.admissionNo || 'N/A'} | Roll No: ${student.rollNo || 'N/A'}</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Academic & Personal Details</div>
+            <div class="grid">
+              <div class="field"><span class="label">Gender:</span><span class="value">${student.gender || 'Male'}</span></div>
+              <div class="field"><span class="label">Date of Birth:</span><span class="value">${formatDate(student.dateOfBirth)}</span></div>
+              <div class="field"><span class="label">Joining Date:</span><span class="value">${formatDate(student.joiningDate || student.admissionDate)}</span></div>
+              <div class="field"><span class="label">Category:</span><span class="value">${student.category || 'General'}</span></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Government Identifications</div>
+            <div class="grid">
+              <div class="field"><span class="label">Aadhaar Number:</span><span class="value">${student.aadharNo || 'N/A'}</span></div>
+              <div class="field"><span class="label">Samagra ID:</span><span class="value">${student.samagraId || 'N/A'}</span></div>
+              <div class="field"><span class="label">APAAR ID:</span><span class="value">${student.apaarId || 'N/A'}</span></div>
+              <div class="field"><span class="label">PAN Number:</span><span class="value">${student.panNo || 'N/A'}</span></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Parent & Family Contact</div>
+            <div class="grid">
+              <div class="field"><span class="label">Father's Name:</span><span class="value">${student.fatherName || 'N/A'}</span></div>
+              <div class="field"><span class="label">Mother's Name:</span><span class="value">${student.motherName || 'N/A'}</span></div>
+              <div class="field"><span class="label">Phone Number:</span><span class="value">${student.phone || 'N/A'}</span></div>
+              <div class="field"><span class="label">Email Address:</span><span class="value">${student.email || 'N/A'}</span></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Residential Address</div>
+            <div class="grid">
+              <div class="field"><span class="label">Village:</span><span class="value">${student.address?.village || 'N/A'}</span></div>
+              <div class="field"><span class="label">Post Office:</span><span class="value">${student.address?.postOffice || 'N/A'}</span></div>
+              <div class="field"><span class="label">Tehsil:</span><span class="value">${student.address?.tehsil || 'N/A'}</span></div>
+              <div class="field"><span class="label">District:</span><span class="value">${student.address?.district || 'N/A'}</span></div>
+              <div class="field"><span class="label">State:</span><span class="value">${student.address?.state || 'N/A'}</span></div>
+              <div class="field"><span class="label">Pincode:</span><span class="value">${student.address?.pincode || 'N/A'}</span></div>
+            </div>
+          </div>
+
+          ${!isBankEmpty ? `
+          <div class="section">
+            <div class="section-title">Bank Details</div>
+            <div class="grid">
+              <div class="field"><span class="label">Account Holder Name:</span><span class="value">${student.bankDetails?.accountHolderName || 'N/A'}</span></div>
+              <div class="field"><span class="label">Bank Name:</span><span class="value">${student.bankDetails?.bankName || 'N/A'}</span></div>
+              <div class="field"><span class="label">Account Number:</span><span class="value">${student.bankDetails?.accountNumber || 'N/A'}</span></div>
+              <div class="field"><span class="label">IFSC Code:</span><span class="value">${student.bankDetails?.ifscCode || 'N/A'}</span></div>
+              <div class="field"><span class="label">Branch Name:</span><span class="value">${student.bankDetails?.branchName || 'N/A'}</span></div>
+            </div>
+          </div>
+          ` : ''}
+          
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `;
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(htmlContent);
+      win.document.close();
+    }
   };
 
   const handleGenerateStudentReport = async (isPrintDirectly: boolean) => {
@@ -1238,7 +1469,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleExportTeachersExcel = () => {
     const headers = ['ID', 'Name', 'Email', 'Subject Specialty', 'Department', 'Contact Line', 'Joining Date', 'Status'];
     const keys = ['id', 'name', 'email', 'subject', 'department', 'contact', 'joiningDate', 'status'];
-    exportToExcel(filteredTeachers, headers, keys, `Teachers_Directory_${new Date().toISOString().split('T')[0]}`);
+    const formattedTeachers = filteredTeachers.map(t => ({
+      ...t,
+      joiningDate: formatDate(t.joiningDate)
+    }));
+    exportToExcel(formattedTeachers, headers, keys, `Teachers_Directory_${new Date().toISOString().split('T')[0]}`);
   };
 
   const handleExportTeachersPDF = () => {
@@ -1249,7 +1484,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       t.subject,
       t.department,
       t.contact,
-      t.joiningDate,
+      formatDate(t.joiningDate),
       t.status
     ]);
     exportToPrintablePDF('Faculty & teacher directory report', headers, rows, 'teachers_directory_report');
@@ -1278,7 +1513,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleExportFeeHistoryExcel = () => {
     const headers = ['Receipt No', 'Student', 'Admission No', 'Class', 'Amount', 'Payment Method', 'Date'];
     const keys = ['receiptNo', 'name', 'admissionNo', 'className', 'amount', 'paymentMethod', 'date'];
-    exportToExcel(feeHistory, headers, keys, `Fee_History_${new Date().toISOString().split('T')[0]}`);
+    const formattedHistory = feeHistory.map(item => ({
+      ...item,
+      date: formatDate(item.date)
+    }));
+    exportToExcel(formattedHistory, headers, keys, `Fee_History_${new Date().toISOString().split('T')[0]}`);
   };
 
   const handleExportFeeHistoryPDF = () => {
@@ -1290,7 +1529,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       item.className || '',
       `₹${(item.amount ?? 0).toLocaleString()}`,
       item.paymentMethod || '',
-      item.date || ''
+      formatDate(item.date)
     ]);
     exportToPrintablePDF('Fee Payment History & Reports', headers, rows, 'fee_payment_history_report');
   };
@@ -1312,7 +1551,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </head>
         <body>
           <h1>Fee Payment History & Reports</h1>
-          <p>Generated on ${new Date().toLocaleDateString()}</p>
+          <p>Generated on ${formatDate(new Date())}</p>
           <table>
             <thead>
               <tr>
@@ -1334,7 +1573,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <td>${item.className || 'N/A'}</td>
                   <td>₹${(item.amount ?? 0).toLocaleString()}</td>
                   <td>${item.paymentMethod || 'N/A'}</td>
-                  <td>${item.date || 'N/A'}</td>
+                  <td>${formatDate(item.date)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -1856,7 +2095,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="p-4 font-semibold text-slate-700">{t.subject}</td>
                       <td className="p-4 font-bold text-slate-400 uppercase tracking-wider">{t.department}</td>
                       <td className="p-4 text-slate-505 font-medium">{t.contact}</td>
-                      <td className="p-4 font-semibold text-slate-500">{t.joiningDate}</td>
+                      <td className="p-4 font-semibold text-slate-500">{formatDate(t.joiningDate)}</td>
                       <td className="p-4">
                         <Badge variant={t.status === 'Active' ? 'success' : 'warning'} size="sm">
                           {t.status}
@@ -2364,7 +2603,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             className="flex flex-col gap-1 text-xs p-2.5 bg-slate-50 border border-slate-100 rounded-lg hover:border-slate-200 transition-colors select-none"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="text-slate-500 font-bold">{item.date}</span>
+                              <span className="text-slate-500 font-bold">{formatDate(item.date)}</span>
                               <span className="font-black text-slate-800 font-mono">₹{(item.amount ?? 0).toLocaleString()}</span>
                             </div>
                             <div className="flex items-center justify-between text-[9px] font-extrabold text-slate-400 uppercase tracking-wide border-t border-slate-100/50 pt-1 mt-0.5">
@@ -2554,7 +2793,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               {item.paymentMethod}
                             </Badge>
                           </td>
-                          <td className="p-3 text-slate-500 font-semibold">{item.date}</td>
+                          <td className="p-3 text-slate-500 font-semibold">{formatDate(item.date)}</td>
                           <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1.5">
                               <button
@@ -2603,7 +2842,7 @@ Class          : ${item.className}
 =============================================
 Settled Amount : ₹${item.amount.toLocaleString()}
 Payment Method : ${item.paymentMethod}
-Payment Date   : ${item.date}
+Payment Date   : ${formatDate(item.date)}
 Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleString()}
 =============================================
          Thank you for your payment!
@@ -2914,7 +3153,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                             <div className="flex justify-between items-start">
                               <div>
                                 <span className="text-[10px] font-black text-blue-600 tracking-wide uppercase">{pay.receiptNo || 'N/A'}</span>
-                                <p className="text-xs text-slate-400 font-bold mt-0.5">{pay.date}</p>
+                                <p className="text-xs text-slate-400 font-bold mt-0.5">{formatDate(pay.date)}</p>
                               </div>
                               <span className="text-sm font-black text-emerald-600">₹{(pay.amount ?? 0).toLocaleString()}</span>
                             </div>
@@ -3368,9 +3607,14 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
         onClose={() => { setIsViewStudentModalOpen(false); setSelectedViewStudent(null); }}
         title="Student Profile & Registry Dossier"
         footer={
-          <Button size="sm" onClick={() => { setIsViewStudentModalOpen(false); setSelectedViewStudent(null); }}>
-            Close Dossier
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => { if (selectedViewStudent) handlePrintStudentProfile(selectedViewStudent); }}>
+              Print Details
+            </Button>
+            <Button size="sm" onClick={() => { setIsViewStudentModalOpen(false); setSelectedViewStudent(null); }}>
+              Close Dossier
+            </Button>
+          </div>
         }
       >
         {selectedViewStudent && (
@@ -3403,11 +3647,11 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-450 font-bold">Date of Birth:</span>
-                    <span className="font-extrabold text-slate-800">{selectedViewStudent.dateOfBirth || 'N/A'}</span>
+                    <span className="font-extrabold text-slate-800">{formatDate(selectedViewStudent.dateOfBirth)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-450 font-bold">Joining Date:</span>
-                    <span className="font-extrabold text-slate-800">{selectedViewStudent.joiningDate || 'N/A'}</span>
+                    <span className="font-extrabold text-slate-800">{formatDate(selectedViewStudent.joiningDate)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-450 font-bold">Admission No:</span>
@@ -3495,6 +3739,49 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                     <span className="font-extrabold text-slate-800 font-mono">{selectedViewStudent.address?.pincode || 'N/A'}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Box 5: Bank Details */}
+              <div className="p-4 border border-slate-100 rounded-xl space-y-2 bg-white">
+                <h5 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-1.5">Bank Details</h5>
+                {(!selectedViewStudent.bankDetails || (
+                  !selectedViewStudent.bankDetails.accountHolderName &&
+                  !selectedViewStudent.bankDetails.bankName &&
+                  !selectedViewStudent.bankDetails.accountNumber &&
+                  !selectedViewStudent.bankDetails.ifscCode &&
+                  !selectedViewStudent.bankDetails.branchName
+                )) ? (
+                  <div className="text-xs text-slate-450 italic py-1 text-center">No Bank Details Available</div>
+                ) : (
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-450 font-bold">Account Holder:</span>
+                      <span className="font-extrabold text-slate-800">{selectedViewStudent.bankDetails?.accountHolderName || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-450 font-bold">Bank Name:</span>
+                      <span className="font-extrabold text-slate-800">{selectedViewStudent.bankDetails?.bankName || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-450 font-bold">Account Number:</span>
+                      <span className="font-extrabold text-slate-800 font-mono">
+                        {selectedViewStudent.bankDetails?.accountNumber
+                          ? selectedViewStudent.bankDetails.accountNumber.length > 4
+                            ? '*'.repeat(selectedViewStudent.bankDetails.accountNumber.length - 4) + selectedViewStudent.bankDetails.accountNumber.slice(-4)
+                            : selectedViewStudent.bankDetails.accountNumber
+                          : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-450 font-bold">IFSC Code:</span>
+                      <span className="font-extrabold text-slate-800 font-mono">{selectedViewStudent.bankDetails?.ifscCode || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-450 font-bold">Branch Name:</span>
+                      <span className="font-extrabold text-slate-800">{selectedViewStudent.bankDetails?.branchName || 'N/A'}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -3783,6 +4070,62 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                   address: { ...studentForm.address, pincode: e.target.value }
                 })}
                 error={formErrors.pincode}
+              />
+            </div>
+          </div>
+
+          {/* Section: Bank Details */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+            <h5 className="text-xs font-bold text-slate-500 tracking-wider uppercase border-b border-slate-200/60 pb-1.5">Bank Details</h5>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="ACCOUNT HOLDER NAME"
+                placeholder="e.g. Rahul Kumar"
+                value={studentForm.bankDetails?.accountHolderName || ''}
+                onChange={(e) => setStudentForm({
+                  ...studentForm,
+                  bankDetails: { ...(studentForm.bankDetails || {}), accountHolderName: e.target.value }
+                })}
+              />
+              <Input
+                label="BANK NAME"
+                placeholder="e.g. State Bank of India"
+                value={studentForm.bankDetails?.bankName || ''}
+                onChange={(e) => setStudentForm({
+                  ...studentForm,
+                  bankDetails: { ...(studentForm.bankDetails || {}), bankName: e.target.value }
+                })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="ACCOUNT NUMBER"
+                placeholder="e.g. 123456789012"
+                value={studentForm.bankDetails?.accountNumber || ''}
+                onChange={(e) => setStudentForm({
+                  ...studentForm,
+                  bankDetails: { ...(studentForm.bankDetails || {}), accountNumber: e.target.value }
+                })}
+              />
+              <Input
+                label="IFSC CODE"
+                placeholder="e.g. SBIN0001234"
+                value={studentForm.bankDetails?.ifscCode || ''}
+                onChange={(e) => setStudentForm({
+                  ...studentForm,
+                  bankDetails: { ...(studentForm.bankDetails || {}), ifscCode: e.target.value }
+                })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="BRANCH NAME"
+                placeholder="e.g. Balaghat"
+                value={studentForm.bankDetails?.branchName || ''}
+                onChange={(e) => setStudentForm({
+                  ...studentForm,
+                  bankDetails: { ...(studentForm.bankDetails || {}), branchName: e.target.value }
+                })}
               />
             </div>
           </div>
