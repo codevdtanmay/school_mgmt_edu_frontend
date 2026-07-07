@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Base Axios service setup pointing to the live API backend
 const axiosInstance = axios.create({
-  baseURL: (import.meta as any).env?.VITE_API_URL || '/api',
+  baseURL: 'http://localhost:3000/api',
   headers: {
     'Content-Type': 'application/json',
   },
