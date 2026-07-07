@@ -68,19 +68,24 @@ export const feeApi = {
         November: 11,
         December: 12
       };
+const currentDate = new Date();
 
-      const response = await axiosInstance.get(
-        '/fees/monthly-report',
-        {
-          params: {
-            month:
-              typeof params?.month === 'string'
-                ? monthMap[params.month] || Number(params.month)
-                : params?.month,
-            year: params?.year
-          }
-        }
-      );
+const currentMonth = currentDate.getMonth() + 1;
+const currentYear = currentDate.getFullYear();
+
+const response = await axiosInstance.get(
+  "/fees/monthly-report",
+  {
+    params: {
+      month:
+        typeof params?.month === "string"
+          ? monthMap[params.month] || Number(params.month)
+          : params?.month || currentMonth,
+
+      year: params?.year || currentYear
+    }
+  }
+);
 
       historyList = response.data.payments || [];
       totalCollection = response.data.totalCollection || 0;
