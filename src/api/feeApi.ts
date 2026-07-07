@@ -67,6 +67,28 @@ const setLocalFeeHistory = (list: FeeHistoryItem[]) => {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
 };
 
+const mapPaymentResponse = (p: any): FeeHistoryItem => {
+  const s = p.studentId || {};
+  const isStudentPopulated = s && typeof s === 'object';
+  const isUserPopulated = s.userId && typeof s.userId === 'object';
+  
+  const resolvedName = isUserPopulated ? s.userId.name : (p.studentName || p.name || '');
+  const resolvedAdmissionNo = isStudentPopulated ? s.admissionNo : (p.admissionNo || '');
+  const resolvedClassName = isStudentPopulated ? `${s.class || ''}-${s.section || ''}` : (p.className || '');
+  
+  return {
+    id: p._id || p.id,
+    receiptNo: p.receiptNo || '',
+    studentId: isStudentPopulated ? (s._id || s.id || p.studentId) : p.studentId,
+    name: resolvedName,
+    admissionNo: resolvedAdmissionNo,
+    className: resolvedClassName,
+    amount: p.amount != null ? Number(p.amount) : 0,
+    paymentMethod: p.paymentMethod || 'Cash',
+    date: p.paymentDate || p.date || ''
+  };
+};
+
 export const feeApi = {
   getFeeHistory: async (params?: {
     month?: number | string;
@@ -75,19 +97,70 @@ export const feeApi = {
     studentId?: string;
   }) => {
     try {
-      const response = await axiosInstance.get("/fees/history", {
-        params
-      });
-      const data = response.data;
-      if (data && (Array.isArray(data.history) || Array.isArray(data))) {
-        const historyList = Array.isArray(data.history) ? data.history : data;
-        return {
-          history: historyList,
-          totalCollection: data.totalCollection !== undefined ? data.totalCollection : historyList.reduce((acc: number, item: any) => acc + (item.amount || 0), 0),
-          totalPayments: data.totalPayments !== undefined ? data.totalPayments : historyList.length
+      let historyList: any[] = [];
+      let totalCol = 0;
+      let totalPay = 0;
+
+      if (params?.studentId) {
+        // Fetch specific student payment history using backend endpoint: GET /fees/student/:id/history
+        const response = await axiosInstance.get(`/fees/student/${params.studentId}/history`);
+        const data = response.data;
+        if (data && Array.isArray(data.history)) {
+          historyList = data.history.map((h: any) => ({
+            ...h,
+            studentName: data.studentName,
+            admissionNo: data.admissionNo
+          }));
+        }
+      } else {
+        // Fetch monthly fee report using backend endpoint: GET /fees/monthly-report
+        const monthMap: Record<string, number> = {
+          'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+          'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
         };
+        
+        let monthNum = new Date().getMonth() + 1;
+        let yearNum = new Date().getFullYear();
+
+        if (params?.month && params.month !== 'All') {
+          if (typeof params.month === 'number') {
+            monthNum = params.month;
+          } else if (typeof params.month === 'string' && monthMap[params.month]) {
+            monthNum = monthMap[params.month];
+          } else if (!isNaN(Number(params.month))) {
+            monthNum = Number(params.month);
+          }
+        }
+        
+        if (params?.year && params.year !== 'All') {
+          yearNum = Number(params.year);
+        }
+
+        const response = await axiosInstance.get('/fees/monthly-report', {
+          params: { month: monthNum, year: yearNum }
+        });
+        const data = response.data;
+        if (data && Array.isArray(data.payments)) {
+          historyList = data.payments;
+          totalCol = data.totalCollection || 0;
+          totalPay = data.totalTransactions || 0;
+        }
       }
-      throw new Error('Fallback to local storage');
+
+      // Filter by paymentMethod if specified
+      if (params?.paymentMethod && params.paymentMethod !== 'All') {
+        historyList = historyList.filter(h => h.paymentMethod === params.paymentMethod);
+      }
+
+      const mappedHistory = historyList.map(mapPaymentResponse);
+      const computedCollection = totalCol || mappedHistory.reduce((sum, item) => sum + item.amount, 0);
+      const computedPayments = totalPay || mappedHistory.length;
+
+      return {
+        history: mappedHistory,
+        totalCollection: computedCollection,
+        totalPayments: computedPayments
+      };
     } catch (e) {
       console.warn('Backend fee history query failed. Using local storage.', e);
       let list = getLocalFeeHistory();

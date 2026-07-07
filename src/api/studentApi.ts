@@ -153,20 +153,44 @@ export const studentApi = {
       const response = await axiosInstance.get('/dashboard/student-distribution');
       return response.data;
     } catch (e) {
-      // Degrade gracefully with calculation fallback
-      return {
-        Foundation: 1,
-        Primary: 2,
-        'Middle School': 1,
-        Secondary: 2
-      };
+      try {
+        const res = await studentApi.getStudents({ limit: 1000 });
+        const list = res.students;
+        const counts: Record<string, number> = {
+          Foundation: 0,
+          Primary: 0,
+          'Middle School': 0,
+          Secondary: 0
+        };
+        list.forEach(s => {
+          const cat = getClassCategory(s.class);
+          counts[cat] = (counts[cat] || 0) + 1;
+        });
+        return counts;
+      } catch (err) {
+        return {
+          Foundation: 1,
+          Primary: 2,
+          'Middle School': 1,
+          Secondary: 2
+        };
+      }
     }
   },
 
   getFeesOverview: async () => {
     try {
-      const response = await axiosInstance.get('/dashboard/fees');
-      return response.data;
+      const response = await axiosInstance.get('/dashboard/fee-summary');
+      const data = response.data;
+      if (data && data.success) {
+        return {
+          collected: data.collected || 0,
+          pending: data.pending || 0,
+          overdue: 0,
+          monthlyTarget: data.total || 0,
+        };
+      }
+      return data;
     } catch (e) {
       // Degrade gracefully
       return {

@@ -24,7 +24,11 @@ export const feeStructureApi = {
   addFeeStructure: async (fsData: Omit<FeeStructure, 'id' | 'totalFee'>): Promise<FeeStructure> => {
     try {
       const response = await axiosInstance.post('/fee-structures', fsData);
-      return response.data;
+      const data = response.data;
+      if (data && data.feeStructure) {
+        return data.feeStructure;
+      }
+      return data;
     } catch (e) {
       const total = (Number(fsData.admissionFee) || 0) + 
                     (Number(fsData.tuitionFee) || 0) + 
@@ -41,8 +45,12 @@ export const feeStructureApi = {
 
   updateFeeStructure: async (id: string, fsData: Partial<FeeStructure>): Promise<FeeStructure> => {
     try {
-      const response = await axiosInstance.put(`/fee-structures/${id}`, fsData);
-      return response.data;
+      const response = await axiosInstance.patch(`/fee-structures/${id}`, fsData);
+      const data = response.data;
+      if (data && data.feeStructure) {
+        return data.feeStructure;
+      }
+      return data;
     } catch (e) {
       return {
         id,

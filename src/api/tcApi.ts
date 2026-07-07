@@ -90,11 +90,15 @@ export const tcApi = {
   getAllTCs: async (): Promise<TransferCertificate[]> => {
     try {
       const response = await axiosInstance.get('/tc');
-      if (Array.isArray(response.data)) {
-        return response.data;
+      const data = response.data;
+      if (data && Array.isArray(data.tcs)) {
+        return data.tcs;
       }
-      if (response.data && Array.isArray(response.data.data)) {
-        return response.data.data;
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (data && Array.isArray(data.data)) {
+        return data.data;
       }
       throw new Error('Using local storage fallback');
     } catch (e) {
@@ -106,7 +110,11 @@ export const tcApi = {
   getTCById: async (id: string): Promise<TransferCertificate> => {
     try {
       const response = await axiosInstance.get(`/tc/${id}`);
-      return response.data;
+      const data = response.data;
+      if (data && data.tc) {
+        return data.tc;
+      }
+      return data;
     } catch (e) {
       console.warn(`Backend /tc/${id} query failed. Using local storage.`, e);
       const list = getLocalTCs();
@@ -119,7 +127,11 @@ export const tcApi = {
   generateTC: async (data: Omit<TransferCertificate, 'id' | 'tcNumber' | 'issueDate' | 'status'>): Promise<TransferCertificate> => {
     try {
       const response = await axiosInstance.post('/tc', data);
-      return response.data;
+      const resData = response.data;
+      if (resData && resData.tc) {
+        return resData.tc;
+      }
+      return resData;
     } catch (e) {
       console.warn('Backend /tc creation failed. Simulating on local storage.', e);
       const list = getLocalTCs();
@@ -148,7 +160,20 @@ export const tcApi = {
   cancelTC: async (id: string): Promise<TransferCertificate> => {
     try {
       const response = await axiosInstance.patch(`/tc/${id}/cancel`);
-      return response.data;
+      const data = response.data;
+      if (data && data.tc) {
+        return data.tc;
+      }
+      
+      // If backend only returns { success: true } but doesn't return the full updated TC object, we can return local model updated
+      const list = getLocalTCs();
+      const index = list.findIndex(item => item.id === id);
+      if (index !== -1) {
+        list[index].status = 'Cancelled';
+        setLocalTCs(list);
+        return list[index];
+      }
+      return data;
     } catch (e) {
       console.warn(`Backend /tc/${id}/cancel patch failed. Doing local cancel.`, e);
       const list = getLocalTCs();

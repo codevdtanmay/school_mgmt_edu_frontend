@@ -82,12 +82,28 @@ export const transportApi = {
   addTransport: async (transportData: Omit<Transport, 'id'>): Promise<Transport> => {
     try {
       const response = await axiosInstance.post('/transport', transportData);
-      const newRecord = response.data;
-      if (newRecord && newRecord.id) {
+      const data = response.data;
+      const raw = data && data.transport ? data.transport : data;
+      
+      if (raw) {
+        const mapped: Transport = {
+          id: raw._id || raw.id,
+          studentId: raw.studentId,
+          name: transportData.name, // hold on to name/email passed as part of UI state mapping
+          email: transportData.email,
+          admissionNo: transportData.admissionNo,
+          className: transportData.className,
+          routeName: raw.routeName || transportData.routeName,
+          pickupPoint: raw.pickupPoint || transportData.pickupPoint,
+          monthlyCharge: raw.monthlyCharge != null ? Number(raw.monthlyCharge) : transportData.monthlyCharge,
+          joiningDate: raw.joiningDate || transportData.joiningDate,
+          status: raw.status || transportData.status || 'Active'
+        };
+        
         const local = getLocalTransports();
-        local.push(newRecord);
+        local.push(mapped);
         setLocalTransports(local);
-        return newRecord;
+        return mapped;
       }
       throw new Error('Invalid response');
     } catch (e) {
@@ -106,12 +122,30 @@ export const transportApi = {
   updateTransport: async (id: string, transportData: Partial<Transport>): Promise<Transport> => {
     try {
       const response = await axiosInstance.put(`/transport/${id}`, transportData);
-      const updated = response.data;
-      if (updated && updated.id) {
+      const data = response.data;
+      const raw = data && data.transport ? data.transport : data;
+      
+      if (raw || data.success) {
         const local = getLocalTransports();
         const index = local.findIndex(t => t.id === id);
+        const current = index !== -1 ? local[index] : {} as any;
+        
+        const updated: Transport = {
+          id: id,
+          studentId: raw?.studentId || transportData.studentId || current.studentId,
+          name: transportData.name || current.name,
+          email: transportData.email || current.email,
+          admissionNo: transportData.admissionNo || current.admissionNo,
+          className: transportData.className || current.className,
+          routeName: raw?.routeName || transportData.routeName || current.routeName,
+          pickupPoint: raw?.pickupPoint || transportData.pickupPoint || current.pickupPoint,
+          monthlyCharge: raw?.monthlyCharge != null ? Number(raw.monthlyCharge) : (transportData.monthlyCharge != null ? transportData.monthlyCharge : current.monthlyCharge),
+          joiningDate: raw?.joiningDate || transportData.joiningDate || current.joiningDate,
+          status: raw?.status || transportData.status || current.status || 'Active'
+        };
+        
         if (index !== -1) {
-          local[index] = { ...local[index], ...updated };
+          local[index] = updated;
           setLocalTransports(local);
         }
         return updated;
