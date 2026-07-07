@@ -60,7 +60,7 @@ import { teacherApi } from '../../api/teacherApi';
 import { noticeApi, dashboardApi } from '../../api/noticeApi';
 import { feeStructureApi } from '../../api/feeStructureApi';
 import { feeApi } from '../../api/feeApi';
-import { transportApi } from '../../api/transportApi';
+import { transportApi } from '../../modules/transport/api/transportApi';
 import { useAuth } from '../../context/AuthContext';
 import { DashboardStats, Notice, Activity, FeeSummary, Student, Teacher, FeeStructure } from '../../types';
 
@@ -1167,7 +1167,7 @@ console.log(studentIdForTransport);
       let transportsList: any[] = [];
       if (selectedColumns.includes('usesTransport')) {
         try {
-          transportsList = await transportApi.getTransports();
+          transportsList = await transportApi.getStudents();
           setReportTransports(transportsList);
         } catch (transErr) {
           console.warn("Could not load transports for custom student report", transErr);
@@ -3472,7 +3472,6 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
         <TransportPanel 
           allStudents={students} 
           refreshTrigger={refreshTrigger} 
-          triggerDataRefresh={triggerDataRefresh}
           assignStudentIdPreset={usesTransportPresetStudentId}
           onClearPreset={() => setUsesTransportPresetStudentId(null)}
           activeSubTab={currentTab === 'transport' ? 'transport-students' : currentTab}
