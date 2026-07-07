@@ -197,20 +197,25 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
 
   // Handle Preset Student assignment from external trigger (Student Profile Integration)
   useEffect(() => {
-    if (assignStudentIdPreset) {
-      const matchedStudent = allStudents.find(s => s.id === assignStudentIdPreset);
-      if (matchedStudent) {
-        setFormStudentId(assignStudentIdPreset);
-        setFormRouteName('Route 1');
-        setFormPickupPoint('');
-        setFormMonthlyCharge('1150');
-        setFormJoiningDate(new Date().toISOString().split('T')[0]);
-        setFormStatus('Active');
-        setFormErrors({});
-        setIsAddModalOpen(true);
-      }
-    }
-  }, [assignStudentIdPreset, allStudents]);
+    if (!assignStudentIdPreset) return;
+
+    setFormStudentId(assignStudentIdPreset);
+    setFormRouteName("Route 1");
+    setFormPickupPoint("");
+    setFormMonthlyCharge("1150");
+    setFormJoiningDate(new Date().toISOString().split("T")[0]);
+    setFormStatus("Active");
+    setFormErrors({});
+    setIsAddModalOpen(true);
+}, [assignStudentIdPreset]);
+
+const matchedStudent = useMemo(
+    () =>
+        allStudents.find(
+            s => s.id === formStudentId
+        ),
+    [allStudents, formStudentId]
+);
 
   const handleCloseAddModal = () => {
     setIsAddModalOpen(false);
@@ -768,10 +773,19 @@ export const TransportPanel: React.FC<TransportPanelProps> = ({
   };
 
   // Filter students that do NOT already have transport assigned
-  const unassignedStudents = useMemo(() => {
-    const assignedIds = new Set(transports.map(t => t.studentId));
-    return allStudents.filter(s => !assignedIds.has(s.id));
-  }, [allStudents, transports]);
+const unassignedStudents = useMemo(() => {
+    const assignedIds = new Set(
+        transports.map(t => t.studentId)
+    );
+
+    return allStudents.filter(s => {
+        if (s.id === formStudentId) {
+            return true;
+        }
+
+        return !assignedIds.has(s.id);
+    });
+}, [allStudents, transports, formStudentId]);
 
   // --- TAB 5: REPORTS GENERATION LOGIC & ROSTERS ---
   const reportRoster = useMemo(() => {

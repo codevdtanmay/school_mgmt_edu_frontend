@@ -509,7 +509,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       samagraId: stu.samagraId || '',
       apaarId: stu.apaarId || '',
       panNo: stu.panNo || '',
-      usesTransport: 'No',
+      usesTransport: stu.usesTransport ? 'Yes' : 'No',
       address: {
         village: stu.address?.village || '',
         postOffice: stu.address?.postOffice || '',
@@ -674,6 +674,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       triggerDataRefresh();
 
       if (shouldAssignTransport && studentIdForTransport) {
+        console.log(savedStudent);
+console.log(studentIdForTransport);
         setUsesTransportPresetStudentId(studentIdForTransport);
         setCurrentTab('transport');
       }

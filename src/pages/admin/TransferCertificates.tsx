@@ -202,30 +202,36 @@ export const TransferCertificates: React.FC<TransferCertificatesProps> = ({
   }, [tcs]);
 
   // Filtering Logic
-  const filteredTCs = useMemo(() => {
-    return tcs.filter(tc => {
-      // Search Box filter
-      const matchesSearch = 
-        tc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tc.admissionNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tc.tcNumber.toLowerCase().includes(searchQuery.toLowerCase());
+const filteredTCs = useMemo(() => {
+  return tcs.filter((tc) => {
+    const search = searchQuery.toLowerCase();
 
-      // Status filter
-      const matchesStatus = statusFilter === 'All' || tc.status === statusFilter;
+    const matchesSearch =
+      (tc.studentName ?? "").toLowerCase().includes(search) ||
+      (tc.admissionNo ?? "").toLowerCase().includes(search) ||
+      (tc.tcNumber ?? "").toLowerCase().includes(search);
 
-      // Year filter
-      const matchesYear = yearFilter === 'All' || tc.issueDate.startsWith(yearFilter);
+    const matchesStatus =
+      statusFilter === "All" || tc.status === statusFilter;
 
-      // Class filter
-      let matchesClass = true;
-      if (classFilter !== 'All') {
-        matchesClass = tc.className.toLowerCase().includes(classFilter.toLowerCase());
-      }
+    const matchesYear =
+      yearFilter === "All" ||
+      (tc.issueDate ?? "").startsWith(yearFilter);
 
-      return matchesSearch && matchesStatus && matchesYear && matchesClass;
-    });
-  }, [tcs, searchQuery, statusFilter, yearFilter, classFilter]);
+    const matchesClass =
+      classFilter === "All" ||
+      (tc.classLeaving ?? "")
+        .toLowerCase()
+        .includes(classFilter.toLowerCase());
 
+    return (
+      matchesSearch &&
+      matchesStatus &&
+      matchesYear &&
+      matchesClass
+    );
+  });
+}, [tcs, searchQuery, statusFilter, yearFilter, classFilter]);
   // Export to Excel handler
   const handleExportExcel = () => {
     const headers = ['TC Number', 'Student Name', 'Admission No', 'Class', 'Issue Date', 'Reason', 'Status'];
@@ -242,9 +248,9 @@ export const TransferCertificates: React.FC<TransferCertificatesProps> = ({
     const headers = ['TC Number', 'Student Name', 'Admission No', 'Class', 'Issue Date', 'Reason', 'Status'];
     const rows = filteredTCs.map(tc => [
       tc.tcNumber,
-      tc.name,
+      tc.studentName,
       tc.admissionNo,
-      tc.className,
+      tc.classLeaving,
       formatDate(tc.issueDate),
       tc.reason,
       tc.status
@@ -453,7 +459,7 @@ export const TransferCertificates: React.FC<TransferCertificatesProps> = ({
             <div class="grid-list">
               <div class="grid-row">
                 <span class="field-lbl">1. Name of Student:</span>
-                <span class="field-val">${tc.name}</span>
+                <span class="field-val">${tc.studentName}</span>
               </div>
               <div class="grid-row">
                 <span class="field-lbl">2. Admission Number:</span>
@@ -473,7 +479,7 @@ export const TransferCertificates: React.FC<TransferCertificatesProps> = ({
               </div>
               <div class="grid-row">
                 <span class="field-lbl">6. Class & Section:</span>
-                <span class="field-val">${tc.className} - Section ${tc.section}</span>
+                <span class="field-val">${tc.classLeaving} - Section ${tc.section}</span>
               </div>
               <div class="grid-row">
                 <span class="field-lbl">7. Admission Date in School:</span>
@@ -544,12 +550,12 @@ export const TransferCertificates: React.FC<TransferCertificatesProps> = ({
 ================================================================================
 TC Number    : ${tc.tcNumber}                          Issue Date: ${formatDate(tc.issueDate)}
 ================================================================================
-1. Name of Student                : ${tc.name}
+1. Name of Student                : ${tc.studentName}
 2. Admission Number               : ${tc.admissionNo}
 3. Father's / Guardian's Name     : ${tc.fatherName}
 4. Mother's Name                  : ${tc.motherName}
 5. Student Category               : ${tc.category}
-6. Class & Section                : ${tc.className} - ${tc.section}
+6. Class & Section                : ${tc.classLeaving} - ${tc.section}
 7. Date of Admission in School    : ${formatDate(tc.joiningDate)}
 8. Last Attendance Date           : ${formatDate(tc.lastAttendanceDate)}
 9. Reason for Leaving School      : ${tc.reason}
@@ -682,7 +688,7 @@ This is a computer-generated transfer certificate. Verified under school record 
                 
                 <div className="flex flex-col sm:flex-row sm:items-center border-b border-dashed border-slate-100 pb-2.5">
                   <span className="sm:w-60 text-[10px] text-slate-400 uppercase tracking-wider">1. Name of Student:</span>
-                  <span className="text-slate-900 font-extrabold uppercase">{viewingTC.name}</span>
+                  <span className="text-slate-900 font-extrabold uppercase">{viewingTC.studentName}</span>
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center border-b border-dashed border-slate-100 pb-2.5">
@@ -707,7 +713,7 @@ This is a computer-generated transfer certificate. Verified under school record 
 
                 <div className="flex flex-col sm:flex-row sm:items-center border-b border-dashed border-slate-100 pb-2.5">
                   <span className="sm:w-60 text-[10px] text-slate-400 uppercase tracking-wider">6. Academic Class & Section:</span>
-                  <span className="text-slate-900">{viewingTC.className} - Section {viewingTC.section}</span>
+                  <span className="text-slate-900">{viewingTC.classLeaving} - Section {viewingTC.section}</span>
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center border-b border-dashed border-slate-100 pb-2.5">
@@ -989,9 +995,9 @@ This is a computer-generated transfer certificate. Verified under school record 
                     className="hover:bg-slate-50/70 transition-all cursor-pointer"
                   >
                     <td className="p-3.5 px-4 text-blue-600 font-black">{tc.tcNumber}</td>
-                    <td className="p-3.5 text-slate-900 font-extrabold uppercase">{tc.name}</td>
+                    <td className="p-3.5 text-slate-900 font-extrabold uppercase">{tc.studentName}</td>
                     <td className="p-3.5 text-slate-500 font-mono">{tc.admissionNo}</td>
-                    <td className="p-3.5 text-slate-500">{tc.className}</td>
+                    <td className="p-3.5 text-slate-500">{tc.classLeaving}</td>
                     <td className="p-3.5 text-slate-550">{formatDate(tc.issueDate)}</td>
                     <td className="p-3.5 text-slate-450 font-medium">{tc.reason}</td>
                     <td className="p-3.5">

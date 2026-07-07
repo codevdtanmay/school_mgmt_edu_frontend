@@ -61,6 +61,7 @@ export interface Student {
     ifscCode?: string;
     branchName?: string;
   };
+  usesTransport?: boolean;
 }
 
 export interface Teacher {

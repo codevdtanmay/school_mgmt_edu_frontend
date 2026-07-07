@@ -1,25 +1,22 @@
 import axiosInstance from '../services/axiosInstance';
 
-export interface TransferCertificate {
+ export interface TransferCertificate {
   id: string;
   tcNumber: string;
+
   studentId: string;
-  name: string;
+  studentName: string;
   admissionNo: string;
-  fatherName: string;
-  motherName: string;
-  className: string;
-  section: string;
-  joiningDate: string;
-  category: string;
+
+  classLeaving: string;
+
+  issueDate: string;
+
   reason: string;
-  lastAttendanceDate: string;
   conduct: string;
   promotedTo: string;
-  remarks: string;
-  issuedBy: string;
-  issueDate: string;
-  status: 'Issued' | 'Cancelled';
+
+  status: "Issued" | "Cancelled";
 }
 
 const LOCAL_STORAGE_KEY = 'school_transfer_certificates_list';

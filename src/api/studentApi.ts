@@ -56,7 +56,7 @@ const mapStudentResponse = (s: any): Student => {
     parentName: s.fatherName || s.parentName || '',
     contact: s.phone || s.contact || '',
     admissionDate: s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : (s.admissionDate || ''),
-    
+    usesTransport: s.usesTransport ?? false,
     // New Demographics and Govt ID fields
     dateOfBirth: s.dateOfBirth || '',
     joiningDate: s.joiningDate || '',
