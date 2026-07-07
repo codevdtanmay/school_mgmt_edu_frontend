@@ -1,20 +1,6 @@
 import axiosInstance from '../services/axiosInstance';
 import { Student } from '../types';
 
-const getClassCategory = (className: string): 'Foundation' | 'Primary' | 'Middle School' | 'Secondary' => {
-  const classStr = (className || '').toLowerCase();
-  if (classStr.includes('9') || classStr.includes('10th') || classStr.includes('9th') || classStr.includes('secondary') || classStr.includes('high')) {
-    return 'Secondary';
-  } else if (classStr.includes('10')) {
-    return 'Secondary';
-  } else if (classStr.includes('6') || classStr.includes('7') || classStr.includes('8') || classStr.includes('6th') || classStr.includes('7th') || classStr.includes('8th') || classStr.includes('middle')) {
-    return 'Middle School';
-  } else if (classStr.includes('foundation') || classStr.includes('kindergarten') || classStr.includes('lkg') || classStr.includes('ukg') || classStr.includes('nursery')) {
-    return 'Foundation';
-  }
-  return 'Primary';
-};
-
 const mapStudentResponse = (s: any): Student => {
   if (!s) return s;
   
@@ -51,7 +37,7 @@ const mapStudentResponse = (s: any): Student => {
     
     // Compatibility fields with existing charts & filters
     rollNumber: s.admissionNo || s.rollNumber || '',
-    classCategory: s.class ? getClassCategory(s.class) : 'Primary',
+    classCategory: s.class || '',
     gender: s.gender || 'Male',
     parentName: s.fatherName || s.parentName || '',
     contact: s.phone || s.contact || '',
@@ -169,17 +155,15 @@ export const studentApi = {
       try {
         const res = await studentApi.getStudents({ limit: 1000 });
         const list = res.students;
-        const counts: Record<string, number> = {
-          Foundation: 0,
-          Primary: 0,
-          'Middle School': 0,
-          Secondary: 0
-        };
-        list.forEach(s => {
-          const cat = getClassCategory(s.class);
-          counts[cat] = (counts[cat] || 0) + 1;
-        });
-        return counts;
+        const counts: Record<string, number> = {};
+
+list.forEach(s => {
+  const cls = s.class || "Unknown";
+
+  counts[cls] = (counts[cls] || 0) + 1;
+});
+
+return counts;
       } catch (err) {
         return {
           Foundation: 0,

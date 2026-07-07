@@ -20,12 +20,46 @@ export const StudentDistribution: React.FC<StudentDistributionProps> = ({ distri
     );
   }
 
-  const levels = [
-    { name: 'Foundation', count: distribution.Foundation || 0, color: 'bg-blue-500', text: 'text-blue-600', lightColor: 'bg-blue-50' },
-    { name: 'Primary', count: distribution.Primary || 0, color: 'bg-emerald-500', text: 'text-emerald-600', lightColor: 'bg-emerald-50' },
-    { name: 'Middle School', count: distribution.Middle || distribution['Middle School'] || 0, color: 'bg-amber-500', text: 'text-amber-600', lightColor: 'bg-amber-50' },
-    { name: 'Secondary', count: distribution.Secondary || 0, color: 'bg-purple-500', text: 'text-purple-600', lightColor: 'bg-purple-50' },
-  ];
+const colors = [
+  {
+    color: "bg-blue-500",
+    text: "text-blue-600",
+    badge: "bg-blue-100"
+  },
+  {
+    color: "bg-emerald-500",
+    text: "text-emerald-600",
+    badge: "bg-emerald-100"
+  },
+  {
+    color: "bg-amber-500",
+    text: "text-amber-600",
+    badge: "bg-amber-100"
+  },
+  {
+    color: "bg-purple-500",
+    text: "text-purple-600",
+    badge: "bg-purple-100"
+  },
+  {
+    color: "bg-pink-500",
+    text: "text-pink-600",
+    badge: "bg-pink-100"
+  },
+  {
+    color: "bg-cyan-500",
+    text: "text-cyan-600",
+    badge: "bg-cyan-100"
+  }
+];
+
+const levels = Object.entries(distribution).map(
+  ([name, count], index) => ({
+    name,
+    count,
+    ...colors[index % colors.length]
+  })
+);
 
   const total = levels.reduce((acc, curr) => acc + curr.count, 0) || 1;
 

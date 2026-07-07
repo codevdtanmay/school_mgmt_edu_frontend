@@ -122,7 +122,7 @@ export const LoginPage: React.FC = () => {
                 id="email-address"
                 label="EMAIL ADDRESS"
                 type="text"
-                placeholder="teacher@pansy.edu or admin@pansy.edu"
+                placeholder="Enter Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 error={emailError}

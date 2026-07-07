@@ -3813,7 +3813,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="FULL NAME"
-                placeholder="e.g. Lillian Thorne"
+                placeholder="Enter Full Name"
                 value={studentForm.name}
                 onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
                 error={formErrors.name}
@@ -3854,7 +3854,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
             <div className="grid grid-cols-3 gap-3">
               <Input
                 label="ADMISSION NO"
-                placeholder="SOPF1092"
+                placeholder="Enter Admission No."
                 value={studentForm.admissionNo}
                 onChange={(e) => setStudentForm({ ...studentForm, admissionNo: e.target.value })}
                 required
@@ -3899,7 +3899,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
               <Input
                 label="ROLL NO"
                 type="number"
-                placeholder="15"
+                placeholder="Enter Roll No."
                 value={studentForm.rollNo}
                 onChange={(e) => setStudentForm({ ...studentForm, rollNo: e.target.value })}
                 required
@@ -3986,14 +3986,14 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="FATHER'S NAME"
-                placeholder="David Thorne"
+                placeholder="Enter Father's Name"
                 value={studentForm.fatherName}
                 onChange={(e) => setStudentForm({ ...studentForm, fatherName: e.target.value })}
                 required
               />
               <Input
                 label="MOTHER'S NAME"
-                placeholder="Mary Thorne"
+                placeholder="Enter Mother's Name"
                 value={studentForm.motherName}
                 onChange={(e) => setStudentForm({ ...studentForm, motherName: e.target.value })}
                 required
@@ -4001,7 +4001,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
             </div>
             <Input
               label="PHONE / CONTACT (10 Digits)"
-              placeholder="e.g. 9876543210"
+              placeholder="Enter 10 digit Mobile No."
               value={studentForm.phone}
               onChange={(e) => setStudentForm({ ...studentForm, phone: e.target.value })}
               error={formErrors.phone}
@@ -4015,7 +4015,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="VILLAGE"
-                placeholder="e.g. Rampur"
+                placeholder="Enter Village Name"
                 value={studentForm.address.village}
                 onChange={(e) => setStudentForm({
                   ...studentForm,
@@ -4024,7 +4024,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
               />
               <Input
                 label="POST OFFICE"
-                placeholder="e.g. Post Office"
+                placeholder="Enter Post Office Name"
                 value={studentForm.address.postOffice}
                 onChange={(e) => setStudentForm({
                   ...studentForm,
@@ -4035,7 +4035,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="TEHSIL"
-                placeholder="e.g. Tehsil"
+                placeholder="Enter Tehsil"
                 value={studentForm.address.tehsil}
                 onChange={(e) => setStudentForm({
                   ...studentForm,
@@ -4044,7 +4044,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
               />
               <Input
                 label="DISTRICT"
-                placeholder="e.g. Raipur"
+                placeholder="Enter District"
                 value={studentForm.address.district}
                 onChange={(e) => setStudentForm({
                   ...studentForm,
@@ -4055,7 +4055,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="STATE"
-                placeholder="e.g. Chhattisgarh"
+                placeholder="Madhya Pradesh"
                 value={studentForm.address.state}
                 onChange={(e) => setStudentForm({
                   ...studentForm,
@@ -4064,7 +4064,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
               />
               <Input
                 label="PINCODE"
-                placeholder="e.g. 492001"
+                placeholder="481001"
                 value={studentForm.address.pincode}
                 onChange={(e) => setStudentForm({
                   ...studentForm,
@@ -4081,7 +4081,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="ACCOUNT HOLDER NAME"
-                placeholder="e.g. Rahul Kumar"
+                placeholder="Enter Name"
                 value={studentForm.bankDetails?.accountHolderName || ''}
                 onChange={(e) => setStudentForm({
                   ...studentForm,
@@ -4090,7 +4090,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
               />
               <Input
                 label="BANK NAME"
-                placeholder="e.g. State Bank of India"
+                placeholder="Enter Bank Name"
                 value={studentForm.bankDetails?.bankName || ''}
                 onChange={(e) => setStudentForm({
                   ...studentForm,
@@ -4101,7 +4101,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="ACCOUNT NUMBER"
-                placeholder="e.g. 123456789012"
+                placeholder="Enter Acc. No."
                 value={studentForm.bankDetails?.accountNumber || ''}
                 onChange={(e) => setStudentForm({
                   ...studentForm,
@@ -4110,7 +4110,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
               />
               <Input
                 label="IFSC CODE"
-                placeholder="e.g. SBIN0001234"
+                placeholder="Enter IFSC Code"
                 value={studentForm.bankDetails?.ifscCode || ''}
                 onChange={(e) => setStudentForm({
                   ...studentForm,
@@ -4121,7 +4121,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="BRANCH NAME"
-                placeholder="e.g. Balaghat"
+                placeholder="Enter Branch Name"
                 value={studentForm.bankDetails?.branchName || ''}
                 onChange={(e) => setStudentForm({
                   ...studentForm,
@@ -4138,7 +4138,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
               <Input
                 label="LOGIN EMAIL"
                 type="email"
-                placeholder="lillian@pansy.edu"
+                placeholder="Enter Email"
                 value={studentForm.email}
                 onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
                 required
@@ -4146,7 +4146,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
               <Input
                 label="PORTAL PASSWORD"
                 type="password"
-                placeholder="password123"
+                placeholder="Enter Password"
                 value={studentForm.password}
                 onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })}
                 required
@@ -4175,7 +4175,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
         <form id="teacher-onboard-form" onSubmit={handleTeacherSubmit} className="space-y-4">
           <Input
             label="FULL NAME"
-            placeholder="Dr. Julian Vance"
+            placeholder="Enter Full Name"
             value={teacherForm.name}
             onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })}
             error={formErrors.name}
@@ -4188,7 +4188,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
               <Input
                 label="LOGIN EMAIL"
                 type="email"
-                placeholder="clara.rivers@pansy.edu"
+                placeholder="Enter Email"
                 value={teacherForm.email}
                 onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })}
                 required
@@ -4196,7 +4196,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
               <Input
                 label="PORTAL PASSWORD"
                 type="password"
-                placeholder="password123"
+                placeholder="Enter Password"
                 value={teacherForm.password}
                 onChange={(e) => setTeacherForm({ ...teacherForm, password: e.target.value })}
                 required
@@ -4207,7 +4207,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="SUBJECT STREAM SPECIALTY"
-              placeholder="e.g. Advanced Chemistry"
+              placeholder="Subject"
               value={teacherForm.subject}
               onChange={(e) => setTeacherForm({ ...teacherForm, subject: e.target.value })}
               error={formErrors.subject}
@@ -4230,7 +4230,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
           </div>
           <Input
             label="CONTACT NUMBER"
-            placeholder="+1 (555) 987-6543"
+            placeholder="Enter Contact No."
             value={teacherForm.contact}
             onChange={(e) => setTeacherForm({ ...teacherForm, contact: e.target.value })}
             required
@@ -4395,7 +4395,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                 
                 <Input
                   label="ACADEMIC SESSION"
-                  placeholder="e.g. 2026-27"
+                  placeholder="2026-27"
                   value={feeStructureForm.academicSession}
                   onChange={(e) => setFeeStructureForm({ ...feeStructureForm, academicSession: e.target.value })}
                   required
@@ -4407,7 +4407,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                   label="ADMISSION FEE (₹)"
                   type="number"
                   min="0"
-                  placeholder="e.g. 500"
+                  placeholder="Enter Admission Fee"
                   value={feeStructureForm.admissionFee}
                   onChange={(e) => setFeeStructureForm({ ...feeStructureForm, admissionFee: e.target.value })}
                   required
@@ -4416,7 +4416,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                   label="TUITION FEE (₹)"
                   type="number"
                   min="0"
-                  placeholder="e.g. 1000"
+                  placeholder="Enter Tution Fee"
                   value={feeStructureForm.tuitionFee}
                   onChange={(e) => setFeeStructureForm({ ...feeStructureForm, tuitionFee: e.target.value })}
                   required
@@ -4428,7 +4428,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                   label="COMPUTER FEE (₹)"
                   type="number"
                   min="0"
-                  placeholder="e.g. 300"
+                  placeholder="Enter Computer Fee"
                   value={feeStructureForm.computerFee}
                   onChange={(e) => setFeeStructureForm({ ...feeStructureForm, computerFee: e.target.value })}
                   required
@@ -4437,7 +4437,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                   label="EXAM FEE (₹)"
                   type="number"
                   min="0"
-                  placeholder="e.g. 200"
+                  placeholder="Enter Exam Fee"
                   value={feeStructureForm.examFee}
                   onChange={(e) => setFeeStructureForm({ ...feeStructureForm, examFee: e.target.value })}
                   required
@@ -4446,7 +4446,7 @@ Remaining Due  : ₹${(matchingRecord ? matchingRecord.dueAmount : 0).toLocaleSt
                   label="CULTURAL ACTIVITY FEE (₹)"
                   type="number"
                   min="0"
-                  placeholder="e.g. 100"
+                  placeholder="Enter Cultural Activity Fee"
                   value={feeStructureForm.culturalActivityFee}
                   onChange={(e) => setFeeStructureForm({ ...feeStructureForm, culturalActivityFee: e.target.value })}
                   required
